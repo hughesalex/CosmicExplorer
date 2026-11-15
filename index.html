@@ -927,7 +927,8 @@ document.getElementById('homeBtn').onclick = () => startFlight([0, 0, 0], 12);
 
 // pointer interaction
 const pointers = new Map(); let dragMoved = 0, lastPinch = 0, lastTap = 0;
-canvas.addEventListener('contextmenu', e => e.preventDefault());
+// No context menu over the map, so right-drag pans cleanly.
+window.addEventListener('contextmenu', e => { if (e.target === canvas || (e.target.closest && e.target.closest('#labels'))) e.preventDefault(); }, true);
 // Pointer gestures start on the canvas or on a map label (labels sit above the canvas),
 // and are tracked on window so a drag or pinch keeps working wherever the pointer goes.
 const ptrDown = (e, onLabel) => { if (!onLabel) canvas.setPointerCapture(e.pointerId);
@@ -935,9 +936,11 @@ const ptrDown = (e, onLabel) => { if (!onLabel) canvas.setPointerCapture(e.point
   if (pointers.size === 2) { const [a, b] = [...pointers.values()]; lastPinch = Math.hypot(a.x - b.x, a.y - b.y); } };
 canvas.addEventListener('pointerdown', e => ptrDown(e, false));
 document.getElementById('labels').addEventListener('pointerdown', e => { if (e.target.classList.contains('lbl')) ptrDown(e, true); });
-document.getElementById('labels').addEventListener('contextmenu', e => e.preventDefault());
 window.addEventListener('pointermove', e => {
   const p = pointers.get(e.pointerId); if (!p) return;
+  // A mouse with no buttons held has finished its drag, even if the browser swallowed the
+  // pointerup (some do for the right button, around the context menu). Stop here.
+  if (e.pointerType === 'mouse' && e.buttons === 0) { if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId); endPtr(e); return; }
   const dx = e.clientX - p.x, dy = e.clientY - p.y; dragMoved += Math.abs(dx) + Math.abs(dy);
   if (pointers.size === 2) { p.x = e.clientX; p.y = e.clientY; const [a, b] = [...pointers.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y);
     if (lastPinch > 0) { view.targetLogR = clampLogR(view.targetLogR - Math.log(d / lastPinch)); flight = null; } lastPinch = d; return; }
