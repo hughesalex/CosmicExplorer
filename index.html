@@ -30,6 +30,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
 .lbl.t-hor{color:#ff9f7a;font-size:10.5px;pointer-events:none;font-style:italic}
 .lbl.t-cmb{color:#ffb98a;font-style:italic}
 .lbl.t-sun{color:#ffe66b;font-weight:600}
+.lbl.t-pl{color:#bfe3ff;font-weight:500}
 .lbl.dest{color:#111;background:var(--accent);text-shadow:none;font-weight:600}
 #destMarker{position:fixed;left:0;top:0;width:26px;height:26px;margin:-13px 0 0 -13px;border:2px solid var(--accent);
   border-radius:50%;pointer-events:none;box-shadow:0 0 10px rgba(255,180,84,.6);display:none}
@@ -123,7 +124,7 @@ table.res td:first-child{color:var(--muted);padding-right:10px;width:44%}
 
 <header id="topbar">
   <h1>COSMIC <span>EXPLORER</span></h1>
-  <input type="search" id="search" list="objlist" placeholder="Find a star or galaxy…" autocomplete="off">
+  <input type="search" id="search" list="objlist" placeholder="Find a planet, star or galaxy…" autocomplete="off">
   <datalist id="objlist"></datalist>
   <button id="homeBtn" title="Return to the Sun">☉</button>
 </header>
@@ -179,6 +180,8 @@ table.res td:first-child{color:var(--muted);padding-right:10px;width:44%}
         Beyond 10 million light-years the ship is flown through an expanding ΛCDM universe (Planck 2018: H₀ = 67.7 km/s/Mpc, Ωm = 0.31, ΩΛ = 0.69):
         coasting ships slow relative to the local Hubble flow, and nothing can reach places beyond the cosmic event horizon.
         Map distances are present-day (comoving) distances; we see distant objects as they were when their light set out.
+        Planets are fixed at their positions on 1 January 2027; trips to them fly a straight line from Earth and ignore the Sun’s gravity,
+        so a minimum-energy (Hohmann) transfer is shown alongside for comparison.
         Nearby star positions are real; the Milky Way's structure, the galaxy field and the cosmic web are illustrative.
       </p>
     </section>
@@ -201,6 +204,7 @@ const LY_M = C_MS * YEAR_S;
 const G0 = 9.80665;
 const G_LY = G0 * YEAR_S * YEAR_S / LY_M;
 const D2R = Math.PI / 180;
+const AU_LY = 1.495978707e11 / LY_M;   // 1 AU in light-years (≈ 1.58 × 10⁻⁵)
 const DEPART_YEAR = new Date().getFullYear();
 
 // ---------- Cosmology (flat ΛCDM) ----------
@@ -604,6 +608,7 @@ const CAT_RAW = [
 
 const TYPEDEF = {
   sun:  { pt: 4e5,  lb: [0, 3e5],     prio: 100, ps: 5.5, col: [1, .93, .6], fly: 8 },
+  pl:   { pt: 0.02, lb: [0, 0.01],    prio: 75, ps: 3.6, col: [1, 1, 1], fly: 1e-4 },
   s:    { pt: 2500, lb: [0, 90],      prio: 40, ps: 3.2, fly: 3 },
   oc:   { pt: 4e4,  lb: [20, 6000],   prio: 30, ps: 3.6, col: [.7, .8, 1], fly: 40 },
   n:    { pt: 8e4,  lb: [100, 15000], prio: 30, ps: 3.6, col: [1, .55, .7], fly: 60 },
@@ -620,7 +625,7 @@ const TYPEDEF = {
   cmb:  { pt: 0,    lb: [5e9, 5e11],  prio: 80, ps: 0, fly: 3e10 },
 };
 const SPEC = { O: [.6, .7, 1], B: [.68, .78, 1], A: [.85, .9, 1], F: [1, 1, .93], G: [1, .93, .75], K: [1, .78, .52], M: [1, .6, .42], L: [.85, .42, .32], D: [.85, .9, 1] };
-const TYPE_NAME = { sun: 'Star', s: 'Star', oc: 'Open star cluster', n: 'Nebula / stellar remnant', gc: 'Globular cluster', mw: 'Galactic Centre', mwgal: 'Galaxy',
+const TYPE_NAME = { pl: 'Planet', sun: 'Star', s: 'Star', oc: 'Open star cluster', n: 'Nebula / stellar remnant', gc: 'Globular cluster', mw: 'Galactic Centre', mwgal: 'Galaxy',
   sat: 'Satellite galaxy', lg: 'Local Group galaxy', gal: 'Galaxy', cl: 'Galaxy cluster', sc: 'Large-scale structure', void: 'Cosmic void', hz: 'Distant quasar / galaxy', cmb: 'Cosmic horizon' };
 
 const CAT = CAT_RAW.map(r => {
@@ -636,11 +641,64 @@ const CAT = CAT_RAW.map(r => {
     if (d > 100) { o.lb = [15, 5000]; o.pt = 1e5; o.ps = 3.6; o.prio = 38; }
     else if (d > 16) { o.lb = [0, 450]; o.pt = 1e4; o.ps = 3.4; }
     if (/Proxima|Alpha Cen|Sirius/.test(name)) { o.lb[1] = 160; o.prio = 48; }
+    if (o.lb[0] === 0) o.lb[0] = 2e-3;   // keep star names out of close-up Solar System views
   }
+  if (type === 'sun') o.size = 2 * 1.3927e9 / LY_M;
   if (type === 'mw') o.pt = 3e5;
   if (/M31|M33|Large Magellanic/.test(name)) o.prio = 65;
   return o;
 });
+
+/* ---------- Planets ----------
+   Fixed positions on PLANET_DATE (no animation), from JPL's approximate Keplerian
+   elements (Standish, valid 1800–2050). Heliocentric ecliptic J2000 → galactic.
+   Trips to planets are measured from Earth's position on that date.          */
+const PLANET_DATE = '2027-01-01';
+//            a (AU), da/cy,   e,        de/cy,    I (deg),   dI/cy,     L (deg),      dL/cy,          ϖ (deg),     dϖ/cy,       Ω (deg),      dΩ/cy
+const PLANETS = [
+  ['Mercury', [0.38709927, 0.00000037, 0.20563593, 0.00001906, 7.00497902, -0.00594749, 252.25032350, 149472.67411175, 77.45779628, 0.16047689, 48.33076593, -0.12534081],
+    4879, 2.2032e13, [.78, .74, .7], 'The smallest planet and the closest to the Sun: a cratered, airless world baking at 430 °C by day.'],
+  ['Venus', [0.72333566, 0.00000390, 0.00677672, -0.00004107, 3.39467605, -0.00078890, 181.97909950, 58517.81538729, 131.60246718, 0.00268329, 76.67984255, -0.27769418],
+    12104, 3.24859e14, [1, .9, .66], 'Earth’s twin in size, smothered in a crushing CO₂ atmosphere hot enough to melt lead.'],
+  ['Earth', [1.00000261, 0.00000562, 0.01671123, -0.00004392, -0.00001531, -0.01294668, 100.46457166, 35999.37244981, 102.93768193, 0.32327364, 0, 0],
+    12742, 3.986004e14, [.45, .7, 1], 'Home. Every journey in the planner starts here.'],
+  ['Mars', [1.52371034, 0.00001847, 0.09339410, 0.00007882, 1.84969142, -0.00813131, -4.55343205, 19140.30268499, -23.94362959, 0.44441088, 49.55953891, -0.29257343],
+    6779, 4.282837e13, [1, .52, .34], 'The red planet: cold desert, thin air, polar ice caps and the tallest volcano in the Solar System.'],
+  ['Jupiter', [5.20288700, -0.00011607, 0.04838624, -0.00013253, 1.30439695, -0.00183714, 34.39644051, 3034.74612775, 14.72847983, 0.21252668, 100.47390909, 0.20469106],
+    139820, 1.26686534e17, [1, .84, .64], 'The largest planet: a gas giant 318 times Earth’s mass, with ice-covered ocean moons (Europa, Ganymede).'],
+  ['Saturn', [9.53667594, -0.00125060, 0.05386179, -0.00050991, 2.48599187, 0.00193609, 49.95424423, 1222.49362201, 92.59887831, -0.41897216, 113.66242448, -0.28867794],
+    116460, 3.7931187e16, [1, .9, .62], 'The ringed gas giant; its moon Titan has lakes of liquid methane and a thick atmosphere.'],
+  ['Uranus', [19.18916464, -0.00196176, 0.04725744, -0.00004397, 0.77263783, -0.00242939, 313.23810451, 428.48202785, 170.95427630, 0.40805281, 74.01692503, 0.04240589],
+    50724, 5.793939e15, [.62, .9, .95], 'An ice giant tipped on its side, visited only once (Voyager 2, 1986).'],
+  ['Neptune', [30.06992276, 0.00026291, 0.00859048, 0.00005105, 1.77004347, 0.00035372, -55.12002969, 218.45945325, 44.96476227, -0.32241464, 131.78422574, -0.00508664],
+    49244, 6.836529e15, [.45, .6, 1], 'The outermost planet: an ice giant with the fastest winds in the Solar System. Voyager 2 took 12 years to get there.'],
+];
+const OBLIQ = 23.43928 * D2R;
+function ecl2gal(v) { // ecliptic J2000 → equatorial → galactic (same matrix as radec)
+  const x = v[0], y = v[1] * Math.cos(OBLIQ) - v[2] * Math.sin(OBLIQ), z = v[1] * Math.sin(OBLIQ) + v[2] * Math.cos(OBLIQ), M = EQ2GAL;
+  return [M[0][0] * x + M[0][1] * y + M[0][2] * z, M[1][0] * x + M[1][1] * y + M[1][2] * z, M[2][0] * x + M[2][1] * y + M[2][2] * z]; }
+// elements at Julian centuries T since J2000 → { a, e, pos(E): ecliptic AU, E0: eccentric anomaly now }
+function keplerOrbit(el, T) {
+  const a = el[0] + el[1] * T, e = el[2] + el[3] * T, I = (el[4] + el[5] * T) * D2R, L = el[6] + el[7] * T, w = el[8] + el[9] * T, O = (el[10] + el[11] * T) * D2R;
+  const M = ((((L - w) % 360) + 540) % 360 - 180) * D2R, om = w * D2R - O;
+  let E = M + e * Math.sin(M); for (let i = 0; i < 30; i++) E -= (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
+  const co = Math.cos(om), so = Math.sin(om), cO = Math.cos(O), sO = Math.sin(O), cI = Math.cos(I), sI = Math.sin(I);
+  const pos = E => { const xp = a * (Math.cos(E) - e), yp = a * Math.sqrt(1 - e * e) * Math.sin(E);
+    return [(co * cO - so * sO * cI) * xp + (-so * cO - co * sO * cI) * yp, (co * sO + so * cO * cI) * xp + (-so * sO + co * cO * cI) * yp, so * sI * xp + co * sI * yp]; };
+  return { a, e, pos, E0: E };
+}
+const PLANET_T = ((Date.parse(PLANET_DATE + 'T00:00:00Z') / 864e5 + 2440587.5) - 2451545) / 36525;
+const PLANET_OBJS = PLANETS.map(([name, el, diamKm, mu, col, info]) => {
+  const orb = keplerOrbit(el, PLANET_T), pos = ecl2gal(orb.pos(orb.E0)).map(v => v * AU_LY);
+  const aLy = orb.a * AU_LY;
+  return { name, type: 'pl', pos, d: 0, z: null, info, spec: '', size: 2 * diamKm * 1000 / LY_M, td: TYPEDEF.pl,
+    lb: [0, 15 * aLy], pt: 60 * aLy, prio: 75, ps: name === 'Earth' ? 4 : 3.6, col, fly: Math.max(0.12, 0.3 * orb.a) * AU_LY,
+    au: orb.a, ecc: orb.e, orb, radiusM: diamKm * 500, mu };
+});
+const EARTH = PLANET_OBJS.find(o => o.name === 'Earth');
+for (const o of PLANET_OBJS) { o.d = Math.hypot(o.pos[0] - EARTH.pos[0], o.pos[1] - EARTH.pos[1], o.pos[2] - EARTH.pos[2]); o.fromEarth = true; }
+EARTH.home = true;
+CAT.splice(1, 0, ...PLANET_OBJS);
 const BYNAME = Object.fromEntries(CAT.map(o => [o.name, o]));
 
 /* =====================================================================
@@ -648,6 +706,10 @@ const BYNAME = Object.fromEntries(CAT.map(o => [o.name, o]));
    render-space position = (position_ly − focus_ly) / R, where R is the
    current view radius in ly.  All long-range arithmetic stays in doubles;
    the GPU only ever sees numbers of order 1.
+   Anything that can be seen up close (catalogue objects, planets, planet
+   orbits, the trip line) is made relative to the focus on the CPU in
+   doubles every frame, so zooming in to a planet 30 AU from the Sun (or
+   to anything else) never loses precision on the GPU.
    ===================================================================== */
 const canvas = document.getElementById('gl');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
@@ -655,7 +717,9 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.setClearColor(0x02030a, 1);
 const scene = new THREE.Scene();
 const FOV = 50, CAM_DIST = 1 / Math.tan(FOV / 2 * D2R);
-const camera = new THREE.PerspectiveCamera(FOV, 1, 1e-4, 1e7);
+// Far plane is huge so distant stars stay visible from inside the Solar System (no depth
+// testing is used, so depth precision does not matter; points also pin their depth below).
+const camera = new THREE.PerspectiveCamera(FOV, 1, 1e-4, 1e15);
 camera.up.set(0, 0, 1);
 
 const VS = `
@@ -670,7 +734,7 @@ void main(){
   float s = max(psize * uDpr, ws);
   float a = aalpha * uOpacity;
   if (s > uMaxPx) { a *= uMaxPx / s; s = uMaxPx; }
-  if (d <= 0.0) a = 0.0;
+  if (d <= 0.0) a = 0.0; else gl_Position.z = 0.0;   // never clipped by the far plane
   gl_PointSize = s;
   vCol = acol; vA = a;
 }`;
@@ -855,16 +919,21 @@ const catPos = catPts.geometry.attributes.position, catAl = catPts.geometry.attr
 catPts.geometry.attributes.wsize.setUsage(THREE.DynamicDrawUsage);
 
 // --- lines: distance rings, horizons, trip line ---
+// Lines get the same treatment as points: pin depth so the far plane never clips them. With
+// the far plane ~10¹⁹ × the near plane, float32 depth would otherwise round to the far plane
+// and drop lines that run from a close-up planet out to Earth or across an orbit.
+function noFarClip(m) { m.onBeforeCompile = sh => { sh.vertexShader = sh.vertexShader.replace('#include <project_vertex>',
+  '#include <project_vertex>\n  if (gl_Position.w > 0.0) gl_Position.z = 0.0;'); }; return m; }
 const circleGeo = (() => { const n = 256, a = new Float32Array(n * 3); for (let i = 0; i < n; i++) { a[i * 3] = Math.cos(i / n * 2 * Math.PI); a[i * 3 + 1] = Math.sin(i / n * 2 * Math.PI); }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(a, 3)); return g; })();
 const rings = [];
 for (let e = 0; e <= 11; e++) {
-  const m = new THREE.LineBasicMaterial({ color: 0x6f7fb0, transparent: true, opacity: 0, depthTest: false, blending: THREE.AdditiveBlending });
+  const m = noFarClip(new THREE.LineBasicMaterial({ color: 0x6f7fb0, transparent: true, opacity: 0, depthTest: false, blending: THREE.AdditiveBlending }));
   const l = new THREE.LineLoop(circleGeo, m); l.frustumCulled = false; scene.add(l); rings.push({ r: Math.pow(10, e), obj: l });
 }
 function sphereWire(radius, color, center) {
   const g = new THREE.Group();
-  for (let k = 0; k < 3; k++) { const l = new THREE.LineLoop(circleGeo, new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0, depthTest: false, blending: THREE.AdditiveBlending }));
+  for (let k = 0; k < 3; k++) { const l = new THREE.LineLoop(circleGeo, noFarClip(new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0, depthTest: false, blending: THREE.AdditiveBlending })));
     if (k === 1) l.rotation.x = Math.PI / 2; if (k === 2) l.rotation.y = Math.PI / 2; l.frustumCulled = false; g.add(l); }
   scene.add(g); return { g, radius, center };
 }
@@ -874,8 +943,28 @@ const HORIZONS = [
   { name: 'Laniakea (approximate extent)', ...sphereWire(2.6e8, 0x7fb6ff, BYNAME['Great Attractor'].pos), fade: [4e7, 1.5e8, 1.5e9, 6e9] },
 ];
 const tripGeo = new THREE.BufferGeometry(); tripGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
-const tripLine = new THREE.Line(tripGeo, new THREE.LineDashedMaterial({ color: 0xffb454, dashSize: .03, gapSize: .02, transparent: true, opacity: .85, depthTest: false }));
+const tripLine = new THREE.Line(tripGeo, noFarClip(new THREE.LineDashedMaterial({ color: 0xffb454, dashSize: .03, gapSize: .02, transparent: true, opacity: .85, depthTest: false })));
 tripLine.frustumCulled = false; scene.add(tripLine);
+// planet orbits: ellipses kept in doubles (ly, Sun-centred) and rewritten relative to the focus each frame
+const ORBIT_N = 2048;
+const orbits = PLANET_OBJS.map(o => {
+  const src = new Float64Array(ORBIT_N * 3);
+  for (let i = 0; i < ORBIT_N; i++) { const p = ecl2gal(o.orb.pos(o.orb.E0 + i / ORBIT_N * 2 * Math.PI)); // vertex 0 is the planet itself
+    src[i * 3] = p[0] * AU_LY; src[i * 3 + 1] = p[1] * AU_LY; src[i * 3 + 2] = p[2] * AU_LY; }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(ORBIT_N * 6), 3));
+  const l = new THREE.LineSegments(g, noFarClip(new THREE.LineBasicMaterial({ color: o.home ? 0x5e8fd8 : 0x56628f, transparent: true, opacity: 0, depthTest: false, blending: THREE.AdditiveBlending })));
+  l.frustumCulled = false; scene.add(l); return { o, src, l, attr: g.attributes.position };
+});
+// Segments that pass behind the camera are clipped on the CPU (some WebGL back ends drop a
+// line entirely when one end is behind the viewer, which happens when zoomed in on a planet).
+const orbitRel = new Float64Array(ORBIT_N * 3), orbitZ = new Float64Array(ORBIT_N), Z_NEAR_CLIP = -1e-3;
+function eyeZ(x, y, z) { const e = camera.matrixWorldInverse.elements; return e[2] * x + e[6] * y + e[10] * z + e[14]; }
+function writeSeg(dst, k, ax, ay, az, za, bx, by, bz, zb) {
+  if (za > Z_NEAR_CLIP && zb > Z_NEAR_CLIP) { bx = ax; by = ay; bz = az; }
+  else if (za > Z_NEAR_CLIP) { const t = (Z_NEAR_CLIP - zb) / (za - zb); ax = bx + (ax - bx) * t; ay = by + (ay - by) * t; az = bz + (az - bz) * t; }
+  else if (zb > Z_NEAR_CLIP) { const t = (Z_NEAR_CLIP - za) / (zb - za); bx = ax + (bx - ax) * t; by = ay + (by - ay) * t; bz = az + (bz - az) * t; }
+  dst[k] = ax; dst[k + 1] = ay; dst[k + 2] = az; dst[k + 3] = bx; dst[k + 4] = by; dst[k + 5] = bz;
+}
 
 /* =====================================================================
    Camera state & navigation
@@ -883,7 +972,10 @@ tripLine.frustumCulled = false; scene.add(tripLine);
 const view = { focus: [0, 0, 0], logR: Math.log(12), targetLogR: Math.log(12), yaw: -2.3, pitch: .45 };
 let flight = null;
 const R = () => Math.exp(view.logR);
-function clampLogR(v) { return Math.max(Math.log(0.05), Math.min(Math.log(3e11), v)); }
+const R_MIN = 1e-7; // ly: ≈ 0.006 AU, a view about 1.9 million km tall
+// Doubles resolve about 1 part in 10¹⁶ of the focus's distance from the Sun, so don't zoom in further
+// than 10⁻¹² of that (e.g. ≈ 0.16 AU at Andromeda); near the Sun the limit is R_MIN.
+function clampLogR(v) { return Math.max(Math.log(Math.max(R_MIN, 1e-12 * Math.hypot(...view.focus))), Math.min(Math.log(3e11), v)); }
 
 // van Wijk & Nuij smooth zoom-and-pan path (w = view radius)
 function startFlight(toFocus, toR) {
@@ -909,9 +1001,11 @@ function stepFlight(now) {
   view.logR = clampLogR(Math.log(x >= 1 ? flight.w1 : w)); view.targetLogR = view.logR;
   if (x >= 1) flight = null;
 }
-function flyToObject(o) { startFlight(o.pos.slice(), o.td.fly); }
+function flyToObject(o) { startFlight(o.pos.slice(), o.fly || o.td.fly); }
 
 const PRESETS = [
+  { n: 'Inner planets', f: () => [0, 0, 0], r: 2.2 * AU_LY },
+  { n: 'Solar System', f: () => [0, 0, 0], r: 34 * AU_LY },
   { n: 'Nearest stars', f: () => [0, 0, 0], r: 12 },
   { n: 'Solar neighbourhood', f: () => [0, 0, 0], r: 400 },
   { n: 'Milky Way', f: () => GC.slice(), r: 75000 },
@@ -1075,10 +1169,21 @@ function frame(now) {
       h.g.children.forEach(c => c.material.opacity = op * .6);
       const s = project([(h.center[0] + h.radius * .7071 - F[0]) / Rv, (h.center[1] - F[1]) / Rv, (h.center[2] + h.radius * .7071 - F[2]) / Rv]); if (s) cands.push({ L: h.L, s, a: op * 2, p: 50 }); }
   }
-  // trip line
-  if (dest && dest.type !== 'sun') {
-    const a = tripGeo.attributes.position; a.setXYZ(0, -F[0] / Rv, -F[1] / Rv, -F[2] / Rv);
-    a.setXYZ(1, (dest.pos[0] - F[0]) / Rv, (dest.pos[1] - F[1]) / Rv, (dest.pos[2] - F[2]) / Rv); a.needsUpdate = true;
+  // planet orbits
+  for (const ob of orbits) {
+    const aLy = ob.o.au * AU_LY, op = Math.min(.55, rangeVis(Rv, 0, 40 * aLy, .3, .6) * .55);
+    ob.l.visible = op > .01; if (!ob.l.visible) continue;
+    ob.l.material.opacity = op; const src = ob.src, dst = ob.attr.array, q = orbitRel;
+    for (let i = 0, j = 0; i < src.length; i += 3, j++) { q[i] = (src[i] - F[0]) / Rv; q[i + 1] = (src[i + 1] - F[1]) / Rv; q[i + 2] = (src[i + 2] - F[2]) / Rv; orbitZ[j] = eyeZ(q[i], q[i + 1], q[i + 2]); }
+    for (let j = 0; j < ORBIT_N; j++) { const a = j * 3, n = (j + 1) % ORBIT_N, b = n * 3;
+      writeSeg(dst, j * 6, q[a], q[a + 1], q[a + 2], orbitZ[j], q[b], q[b + 1], q[b + 2], orbitZ[n]); }
+    ob.attr.needsUpdate = true;
+  }
+  // trip line (from Earth for planets, from the Sun otherwise: at these distances they are the same point)
+  if (dest && dest.type !== 'sun' && !dest.home) {
+    const a = tripGeo.attributes.position, st = dest.fromEarth ? EARTH.pos : [0, 0, 0];
+    const p = [(st[0] - F[0]) / Rv, (st[1] - F[1]) / Rv, (st[2] - F[2]) / Rv], q = [(dest.pos[0] - F[0]) / Rv, (dest.pos[1] - F[1]) / Rv, (dest.pos[2] - F[2]) / Rv];
+    writeSeg(a.array, 0, ...p, eyeZ(...p), ...q, eyeZ(...q)); a.needsUpdate = true;
     tripLine.computeLineDistances(); tripLine.visible = true;
     const sd = screen.get(dest);
     if (sd) { marker.style.display = 'block'; marker.style.transform = `translate(${sd[0]}px,${sd[1]}px)`; } else marker.style.display = 'none';
@@ -1125,7 +1230,7 @@ function sig(x, n = 3) { if (!isFinite(x)) return '∞'; if (x === 0) return '0'
 function sci(x, n = 2) { if (!isFinite(x)) return '∞'; const e = Math.floor(Math.log10(Math.abs(x))), m = x / Math.pow(10, e);
   return `${m.toFixed(n - 1)} × 10${String(e).replace(/-/g, '⁻').replace(/\d/g, d => '⁰¹²³⁴⁵⁶⁷⁸⁹'[d])}`; }
 function fmtDist(ly, short) {
-  if (ly < 0.01) { const au = ly * 63241; return sig(au) + ' AU'; }
+  if (ly < 0.01) { const au = ly / AU_LY; if (au < 0.01) return sig(ly * LY_M / 1000, 3) + ' km'; return sig(au) + ' AU'; }
   if (ly < 1e6) return sig(ly, 3) + ' ly';
   if (ly < 1e9) return sig(ly / 1e6, 3) + (short ? ' Mly' : ' million ly');
   return sig(ly / 1e9, 3) + (short ? ' Gly' : ' billion ly');
@@ -1135,6 +1240,7 @@ function fmtTime(y) {
   if (y < 1 / 365.25 / 24) return sig(y * 525960, 3) + ' min';
   if (y < 2 / 365.25) return sig(y * 8766, 3) + ' hours';
   if (y < 0.25) return sig(y * 365.25, 3) + ' days';
+  if (y < 2) return sig(y * 12, 3) + ' months';
   if (y < 1000) return sig(y, 3) + ' years';
   if (y < 1e6) return sig(Math.round(y / 10) * 10, 4) + ' years';
   if (y < 1e9) return sig(y / 1e6, 3) + ' million years';
@@ -1203,7 +1309,8 @@ bindSlider('sA', s => { state.per[state.drive].aG = fromSl(s, ...aRange()); });
 function selectDest(o) {
   dest = o; const meta = [];
   meta.push(TYPE_NAME[o.type] || '');
-  if (o.type !== 'sun') meta.push(fmtDist(o.d) + (o.d > COSMO_MIN ? ' (today)' : ''));
+  if (o.type === 'pl') { if (!o.home) meta.push(fmtDist(o.d) + ' from Earth'); meta.push(sig(o.au, 3) + ' AU from the Sun'); meta.push('positions as on ' + fmtDate(PLANET_DATE)); }
+  else if (o.type !== 'sun') meta.push(fmtDist(o.d) + (o.d > COSMO_MIN ? ' (today)' : ''));
   let extra = '';
   if (o.z != null && o.z > 0.003) { const lb = lookback(o.z); extra = ` Redshift z ≈ ${sig(o.z, 3)}. Its light set out ${fmtTime(lb)} ago, when it was ${fmtDist(o.d / (1 + o.z))} from us.`; }
   else if (o.d > 0) extra = ` The light we see left it ${fmtTime(o.d)} ago.`;
@@ -1226,7 +1333,7 @@ function renderResults() {
   const el = $('resSec');
   $('phSum').textContent = '';
   if (!dest) { el.innerHTML = ''; return; }
-  if (dest.type === 'sun') { el.innerHTML = '<div class="sec-h">Journey</div><p class="hint">You are already here. Pick a destination on the map.</p>'; return; }
+  if (dest.type === 'sun' || dest.home) { el.innerHTML = `<div class="sec-h">Journey</div><p class="hint">${dest.home ? 'You are here: every journey starts from Earth.' : 'Journeys are measured from Earth, and on interstellar scales the Sun is in the same place.'} Pick a planet, star or galaxy on the map.</p>`; return; }
   const D = dest.d, prm = params(), r = planTrip(prm, D, state.mode, 'high');
   const cosmo = D > COSMO_MIN;
   let h = `<div class="sec-h">Journey to ${dest.name}</div>`;
@@ -1271,10 +1378,37 @@ function renderResults() {
   if (cosmo) {
     const flat = tripFlat(ship, D, state.mode);
     h += `<div class="note">Flown through the expanding universe. In a static universe this trip would take ${fmtTime(flat.t)} Earth time and ${fmtTime(flat.tau)} ship time. On arrival the universe is ${sig(r.tArr / 1e9, 3)} billion years old (it is ${sig(Cos.t0 / 1e9, 3)} billion years old today).</div>`;
-  } else if (D > 4e5) h += `<div class="note">The Local Group is gravitationally bound, so cosmic expansion does not stretch this journey (galaxies' own motions are ignored).</div>`;
+  } else if (dest.type === 'pl') h += solarNotes(dest, ship, r);
+  else if (D > 4e5) h += `<div class="note">The Local Group is gravitationally bound, so cosmic expansion does not stretch this journey (galaxies' own motions are ignored).</div>`;
   el.innerHTML = h;
   $('phSum').textContent = '· ' + fmtTime(tE) + ' / ' + fmtTime(tS);
 }
+// Solar System context: straight-line trips ignore the Sun's gravity, so compare with a Hohmann transfer
+const MU_SUN = 1.32712440018e20, AU_M = 1.495978707e11, MU_EARTH = 3.986004418e14, R_LEO = 6378e3 + 400e3;
+function hohmann(p) {
+  const r1 = AU_M, r2 = p.au * AU_M, at = (r1 + r2) / 2;
+  const vD = Math.abs(Math.sqrt(MU_SUN / r1) * (Math.sqrt(2 * r2 / (r1 + r2)) - 1)), vA = Math.abs(Math.sqrt(MU_SUN / r2) * (1 - Math.sqrt(2 * r1 / (r1 + r2))));
+  const dep = Math.sqrt(vD * vD + 2 * MU_EARTH / R_LEO) - Math.sqrt(MU_EARTH / R_LEO);
+  const rp = 1.05 * p.radiusM, ra = 20 * p.radiusM;      // capture into an elliptical orbit skimming the planet
+  const cap = Math.sqrt(vA * vA + 2 * p.mu / rp) - Math.sqrt(2 * p.mu / rp * ra / (ra + rp));
+  return { t: Math.PI * Math.sqrt(at ** 3 / MU_SUN) / YEAR_S, dep: dep / 1000, cap: cap / 1000, vA: vA / 1000, syn: 1 / Math.abs(1 - Math.pow(p.au, -1.5)) };
+}
+function solarNotes(p, ship, r) {
+  const H = hohmann(p), need = H.dep + (state.mode === 'stop' ? H.cap : 0), dvShip = ship.magic ? Infinity : ship.B * C_MS / 1000;
+  const vPeak = Math.tanh(r.phiPeak) * C_MS / 1000, lo = Math.abs(p.au - 1), hi = p.au + 1;
+  let h = '';
+  if (vPeak < 60) h += `<div class="note warn">This ship peaks at only ${sig(vPeak, 3)} km/s, comparable to orbital speeds around the Sun (Earth moves at 30 km/s). Real ships at these speeds follow curved orbits shaped by the Sun’s gravity, so the straight-line time above is only a rough guide; the minimum-energy transfer below is the realistic benchmark.</div>`;
+  else if (vPeak < 300) h += `<div class="note">At ${sig(vPeak, 3)} km/s the Sun’s gravity still bends the path a little, but the straight-line time is a fair estimate.</div>`;
+  h += `<div class="sec-h" style="margin-top:10px">Minimum-energy (Hohmann) transfer</div><table class="res">
+    <tr><td>Trip time</td><td>${fmtTime(H.t)} <span class="hint">(half an orbit; launch windows every ${fmtTime(H.syn)})</span></td></tr>
+    <tr><td>Δv to leave low Earth orbit</td><td>${sig(H.dep, 3)} km/s</td></tr>
+    ${state.mode === 'stop' ? `<tr><td>Δv to brake into orbit at ${p.name}</td><td>${sig(H.cap, 3)} km/s <span class="hint">(arriving at ${sig(H.vA, 2)} km/s)</span></td></tr>` : `<tr><td>Speed passing ${p.name}</td><td>${sig(H.vA, 2)} km/s relative to the planet</td></tr>`}
+    <tr><td>This ship’s Δv budget</td><td>${ship.magic ? 'unlimited' : sig(dvShip, 3) + ' km/s'} ${dvShip >= need ? '<span style="color:var(--good)">✓ enough</span>' : `<span class="bad">✗ needs ${sig(need, 3)} km/s</span>`}</td></tr></table>
+    <p class="hint" style="margin:6px 0 0">The classic chemical-rocket route: two short burns, coasting on an ellipse around the Sun. It ignores the launch from Earth’s surface (~9.4 km/s more to reach orbit) and gravity assists, which real missions such as Voyager used to cut years off the outer-planet trips. Distance from Earth varies between about ${sig(lo, 2)} and ${sig(hi, 2)} AU as the planets move; the map shows ${fmtDate(PLANET_DATE)}.</p>`;
+  if (!ship.magic && ship.aG < 3e-3) h += `<div class="note">Low-thrust drives cannot make the short burns this assumes; they spiral out of Earth orbit over weeks or months instead (roughly double the Δv), and the straight-line estimate above suits them better.</div>`;
+  return h;
+}
+function fmtDate(iso) { return new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }); }
 function driveSummary(s) {
   if (s.magic) return `<div class="note">Magic drive: no propellant. Payload ${fmtMass(s.payload)}.</div>`;
   return `<table class="res" style="margin-top:8px">
@@ -1289,7 +1423,7 @@ const chart = $('chart'); let chartData = null, chartToken = 0, chartTimer = 0;
 function scheduleChart() { clearTimeout(chartTimer); chartTimer = setTimeout(runChart, 120); }
 async function runChart() {
   const tok = ++chartToken;
-  if (!dest || dest.type === 'sun') { chartData = null; drawChart(); return; }
+  if (!dest || dest.type === 'sun' || dest.home) { chartData = null; drawChart(); return; }
   const base = params(), D = dest.d, ar = aRange(), N = D > COSMO_MIN ? 22 : 44, q = D > COSMO_MIN ? 'low' : 'high';
   const pts = [];
   $('chartNote').textContent = 'Computing…';
@@ -1360,7 +1494,7 @@ syncUI();
 if (window.matchMedia('(max-width:760px)').matches) { $('panel').classList.add('collapsed'); $('panelToggle').textContent = '▴'; }
 selectDest(BYNAME['Proxima Centauri']);
 requestAnimationFrame(frame);
-window.__cosmic = { view, startFlight, selectDest, BYNAME, state, syncUI, recompute, R };
+window.__cosmic = { view, startFlight, selectDest, BYNAME, state, syncUI, recompute, R, CAT, orbits, catPos, camera, canvas };
 </script>
 </body>
 </html>
