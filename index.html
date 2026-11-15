@@ -1,0 +1,1312 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Cosmic Explorer</title>
+<style>
+:root{
+  --bg:#02030a; --panel:rgba(10,14,28,.88); --panel2:rgba(255,255,255,.04);
+  --line:rgba(140,170,255,.16); --text:#dfe6ff; --muted:#8a97c0;
+  --accent:#ffb454; --accent2:#5ed1ff; --good:#7ee787; --warn:#ff8a7a;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+  font:13px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;overflow:hidden}
+#gl{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none}
+#labels{position:fixed;inset:0;pointer-events:none;overflow:hidden}
+.lbl{position:absolute;left:0;top:0;white-space:nowrap;font-size:11.5px;color:#cdd6ff;
+  text-shadow:0 0 3px #000,0 0 6px #000,0 0 10px #000;pointer-events:auto;cursor:pointer;
+  padding:0 3px;border-radius:3px;will-change:transform;user-select:none}
+.lbl:hover{color:#fff;background:rgba(94,209,255,.15)}
+.lbl.t-gal,.lbl.t-lg,.lbl.t-sat{color:#d9c8ff}
+.lbl.t-cl{color:#ffd88a}
+.lbl.t-sc{color:#9fd2ff;font-style:italic;letter-spacing:.06em;text-transform:uppercase;font-size:10.5px}
+.lbl.t-void{color:#8892aa;font-style:italic;font-size:10.5px}
+.lbl.t-hz{color:#ffb0d0}
+.lbl.t-mw,.lbl.t-mwgal{color:#ffe0a8}
+.lbl.t-arm{color:#8fd8ff;font-style:italic;font-size:10.5px;pointer-events:none;opacity:.8}
+.lbl.t-ring{color:#7f8bb0;font-size:10px;pointer-events:none}
+.lbl.t-hor{color:#ff9f7a;font-size:10.5px;pointer-events:none;font-style:italic}
+.lbl.t-cmb{color:#ffb98a;font-style:italic}
+.lbl.t-sun{color:#ffe66b;font-weight:600}
+.lbl.dest{color:#111;background:var(--accent);text-shadow:none;font-weight:600}
+#destMarker{position:fixed;left:0;top:0;width:26px;height:26px;margin:-13px 0 0 -13px;border:2px solid var(--accent);
+  border-radius:50%;pointer-events:none;box-shadow:0 0 10px rgba(255,180,84,.6);display:none}
+#topbar{position:fixed;top:10px;left:12px;display:flex;gap:8px;align-items:center;z-index:5}
+#topbar h1{font-size:16px;margin:0 6px 0 0;font-weight:650;letter-spacing:.04em;white-space:nowrap}
+#topbar h1 span{color:var(--accent)}
+input[type=search]{background:var(--panel);border:1px solid var(--line);color:var(--text);border-radius:8px;
+  padding:6px 10px;width:220px;font:inherit;outline:none}
+input[type=search]:focus{border-color:var(--accent2)}
+button{font:inherit;color:var(--text);background:var(--panel);border:1px solid var(--line);border-radius:8px;
+  padding:5px 10px;cursor:pointer}
+button:hover{border-color:var(--accent2)}
+#ladder{position:fixed;left:12px;top:56px;display:flex;flex-direction:column;gap:3px;z-index:4}
+#ladder button{text-align:left;padding:4px 10px;font-size:12px;background:rgba(10,14,28,.7);color:var(--muted)}
+#ladder button.on{color:#111;background:var(--accent2);border-color:var(--accent2)}
+#ladder .lt{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin:0 0 2px 2px}
+#scaleinfo{position:fixed;left:12px;bottom:12px;z-index:4;background:rgba(10,14,28,.7);border:1px solid var(--line);
+  border-radius:8px;padding:6px 10px;min-width:170px}
+#scalebar{height:6px;border:1px solid #cdd6ff;border-top:none;margin:4px 0 2px}
+#scaleinfo .big{font-size:13px}
+#scaleinfo .sm{color:var(--muted);font-size:11px}
+#hint{position:fixed;bottom:12px;left:230px;right:410px;text-align:center;color:var(--muted);font-size:11.5px;
+  background:rgba(10,14,28,.6);padding:4px 10px;border-radius:12px;z-index:3;pointer-events:none}
+@media (max-width:1100px){#hint{display:none}}
+#panel{position:fixed;top:10px;right:10px;bottom:10px;width:380px;background:var(--panel);border:1px solid var(--line);
+  border-radius:12px;z-index:6;display:flex;flex-direction:column;backdrop-filter:blur(6px)}
+#panel .ph{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--line);
+  font-weight:650;letter-spacing:.03em}
+#panelToggle{display:none}
+#panel .pbody{overflow-y:auto;padding:4px 14px 16px;flex:1}
+section{padding:10px 0;border-bottom:1px solid var(--line)}
+section:last-child{border-bottom:none}
+.sec-h{font-size:10.5px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin-bottom:6px;
+  display:flex;justify-content:space-between;align-items:center}
+#destName{font-size:17px;font-weight:650}
+#destMeta{color:var(--muted);font-size:12px;margin-top:2px}
+#destInfo{margin:6px 0;color:#c3cbea}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.hint{color:var(--muted);font-size:11px}
+.seg{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}
+.seg button{flex:1 1 auto;padding:5px 8px;font-size:12px}
+.seg button.on{background:var(--accent);color:#111;border-color:var(--accent);font-weight:600}
+#driveDesc{color:#c3cbea;margin:6px 0 8px;font-size:12.5px}
+.ctl{margin:8px 0}
+.ctl label{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:#c3cbea}
+.ctl label b{color:var(--text);font-weight:600;text-align:right}
+.ctl .sub{color:var(--muted);font-size:11px;margin-top:1px}
+input[type=range]{width:100%;accent-color:var(--accent2);margin:4px 0 0}
+details{margin:6px 0}
+summary{cursor:pointer;color:var(--muted);font-size:12px}
+.kpi{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:4px 0 8px}
+.kpi > div{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.kpi .k{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.kpi .v{font-size:18px;font-weight:650;margin-top:2px;line-height:1.2}
+.kpi .e .v{color:var(--accent)} .kpi .p .v{color:var(--accent2)}
+table.res{width:100%;border-collapse:collapse;font-size:12px}
+table.res td{padding:3px 0;vertical-align:top;border-bottom:1px dashed rgba(140,170,255,.08)}
+table.res td:first-child{color:var(--muted);padding-right:10px;width:44%}
+.phbar{display:flex;height:10px;border-radius:5px;overflow:hidden;margin:3px 0 1px;background:var(--panel2)}
+.phbar span{display:block;height:100%}
+.legend{display:flex;gap:10px;font-size:11px;color:var(--muted);flex-wrap:wrap}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.note{font-size:11.5px;color:#b7c0e0;background:rgba(94,209,255,.06);border-left:2px solid var(--accent2);padding:6px 8px;margin:8px 0;border-radius:0 6px 6px 0}
+.note.warn{border-color:var(--warn);background:rgba(255,138,122,.07)}
+.bad{color:var(--warn)}
+#chart{width:100%;height:180px;display:block;cursor:crosshair}
+#chartNote{font-size:11.5px;color:#b7c0e0;margin-top:4px}
+#optBtn{font-size:11px;padding:3px 8px;text-transform:none;letter-spacing:0}
+@media (max-width:760px){
+  #topbar{right:10px;left:10px}
+  #topbar h1{font-size:14px}
+  input[type=search]{width:auto;flex:1;min-width:0}
+  #ladder{top:48px;left:0;right:0;flex-direction:row;overflow-x:auto;padding:0 10px;gap:4px}
+  #ladder .lt{display:none}
+  #ladder button{white-space:nowrap;flex:0 0 auto}
+  #hint{display:none}
+  #scaleinfo{bottom:auto;top:84px;left:10px;padding:4px 8px;min-width:140px}
+  #panel{top:auto;left:0;right:0;bottom:0;width:auto;height:52vh;border-radius:14px 14px 0 0;transition:height .25s}
+  #panel.collapsed{height:46px}
+  #panelToggle{display:inline-block}
+}
+</style>
+</head>
+<body>
+<canvas id="gl" tabindex="0"></canvas>
+<div id="labels"></div>
+<div id="destMarker"></div>
+
+<header id="topbar">
+  <h1>COSMIC <span>EXPLORER</span></h1>
+  <input type="search" id="search" list="objlist" placeholder="Find a star or galaxy…" autocomplete="off">
+  <datalist id="objlist"></datalist>
+  <button id="homeBtn" title="Return to the Sun">☉</button>
+</header>
+
+<nav id="ladder"><div class="lt">Scale</div></nav>
+
+<div id="scaleinfo">
+  <div class="big" id="scaleTxt">—</div>
+  <div id="scalebar" style="width:100px"></div>
+  <div class="sm" id="scaleBarTxt">—</div>
+</div>
+<div id="hint">Drag to rotate · scroll / pinch to zoom · right-drag or shift-drag to pan · click a label to choose a destination · double-click to fly there</div>
+
+<aside id="panel">
+  <div class="ph"><span>Journey planner <span id="phSum" class="hint" style="font-weight:400;letter-spacing:0"></span></span><button id="panelToggle">▾</button></div>
+  <div class="pbody">
+    <section id="destSec">
+      <div class="sec-h">Destination <span class="hint" style="text-transform:none;letter-spacing:0">departing from Earth</span></div>
+      <div id="destName">—</div>
+      <div id="destMeta"></div>
+      <p id="destInfo"></p>
+      <div class="row"><button id="flyBtn">Show on map</button><span class="hint">or click any label on the map</span></div>
+    </section>
+    <section>
+      <div class="sec-h">Propulsion</div>
+      <div class="seg" id="driveSeg"></div>
+      <p id="driveDesc"></p>
+      <div class="ctl" id="ctlW"><label>Exhaust velocity <b id="vW"></b></label><input type="range" id="sW" min="0" max="1000"><div class="sub" id="wNote"></div></div>
+      <div class="ctl" id="ctlPay"><label>Payload (crew, habitat, shielding) <b id="vPay"></b></label><input type="range" id="sPay" min="0" max="1000"></div>
+      <div class="ctl" id="ctlFuel"><label><span id="fuelLbl">Propellant</span> <b id="vFuel"></b></label><input type="range" id="sFuel" min="0" max="1000"><div class="sub" id="fuelNote"></div></div>
+      <div class="ctl" id="ctlA"><label>Thrust (as starting acceleration) <b id="vA"></b></label><input type="range" id="sA" min="0" max="1000"><div class="sub" id="aNote"></div></div>
+      <details id="adv"><summary>Engine technology level</summary>
+        <div class="ctl"><label>Specific power of engine + power plant <b id="vSp"></b></label><input type="range" id="sSp" min="0" max="1000">
+        <div class="sub">Jet power each kilogram of engine can deliver. More thrust needs more power, so a heavier engine; that is the trade-off that creates an optimum.</div></div>
+      </details>
+      <div class="sec-h" style="margin-top:10px">Arrival</div>
+      <div class="seg" id="modeSeg">
+        <button data-mode="stop">Stop at destination</button>
+        <button data-mode="flyby">Fly past at full speed</button>
+      </div>
+    </section>
+    <section id="resSec"></section>
+    <section>
+      <div class="sec-h">Thrust vs. trip time <button id="optBtn">Use optimum</button></div>
+      <canvas id="chart"></canvas>
+      <div id="chartNote"></div>
+    </section>
+    <section>
+      <div class="sec-h">About the physics</div>
+      <p class="hint" style="font-size:11.5px;line-height:1.5">
+        Journeys use the exact relativistic rocket equation (rapidity = exhaust speed × ln mass ratio) with constant thrust,
+        integrated in the ship's own frame. "Earth time" is the time that passes at home; "ship time" is what the crew's clocks record.
+        Beyond 10 million light-years the ship is flown through an expanding ΛCDM universe (Planck 2018: H₀ = 67.7 km/s/Mpc, Ωm = 0.31, ΩΛ = 0.69):
+        coasting ships slow relative to the local Hubble flow, and nothing can reach places beyond the cosmic event horizon.
+        Map distances are present-day (comoving) distances; we see distant objects as they were when their light set out.
+        Nearby star positions are real; the Milky Way's structure, the galaxy field and the cosmic web are illustrative.
+      </p>
+    </section>
+  </div>
+</aside>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+/* =====================================================================
+   Constants & units.  Internally: lengths in light-years, times in years,
+   so c = 1.  Accelerations in ly/yr^2 (1 g ≈ 1.0323 ly/yr^2).
+   ===================================================================== */
+const C_MS = 299792458;
+const YEAR_S = 365.25 * 86400;
+const LY_M = C_MS * YEAR_S;
+const G0 = 9.80665;
+const G_LY = G0 * YEAR_S * YEAR_S / LY_M;
+const D2R = Math.PI / 180;
+const DEPART_YEAR = new Date().getFullYear();
+
+// ---------- Cosmology (flat ΛCDM) ----------
+const OM = 0.31, OL = 0.69, OR = 9.1e-5;
+const H0 = 67.7 / 3.0856775814913673e19 * YEAR_S;           // 1/yr
+const HUBBLE_LEN = 1 / H0;                                    // ly
+const Cos = {
+  K: 1.5 * Math.sqrt(OL) * H0,
+  a(t) { return Math.cbrt(OM / OL) * Math.pow(Math.sinh(this.K * t), 2 / 3); },
+  t(a) { return Math.asinh(Math.sqrt(OL / OM) * Math.pow(a, 1.5)) / this.K; },
+  H(a) { return H0 * Math.sqrt(OM / (a * a * a) + OL); },
+};
+Cos.t0 = Cos.t(1);
+function simpson(f, a, b, n) { n = n % 2 ? n + 1 : n; const h = (b - a) / n; let s = f(a) + f(b);
+  for (let i = 1; i < n; i++) s += f(a + i * h) * (i % 2 ? 4 : 2); return s * h / 3; }
+// comoving distance to redshift z (radiation included), ly
+function chiOfZ(z) { const E = x => { const zz = Math.exp(x) - 1, q = 1 + zz;
+    return q / Math.sqrt(OR * q ** 4 + OM * q ** 3 + OL); };
+  return HUBBLE_LEN * simpson(E, 0, Math.log(1 + z), 2000); }
+function zOfChi(chi) { let lo = 0, hi = 2000; for (let i = 0; i < 80; i++) { const m = Math.sqrt(lo * hi) || hi / 2;
+    if (chiOfZ(m) > chi) hi = m; else lo = m; if (lo === 0) lo = 1e-9; } return (lo + hi) / 2; }
+function lookback(z) { return Cos.t0 - Cos.t(1 / (1 + z)); }
+// conformal "future" distance F(x)= ∫_0^x dx'/H(1/x'), x = 1/a; light emitted at a reaches comoving distance F(1/a) by t→∞
+const Fconf = x => HUBBLE_LEN * simpson(u => 1 / Math.sqrt(OM * u * u * u + OL), 0, x, 400);
+const EVENT_HORIZON = Fconf(1);    // ≈ 16.7 Gly
+// time (cosmic) at which a signal sent from comoving distance chi at cosmic time tSend reaches us; Infinity if never
+function messageArrival(tSend, chi) {
+  const xs = 1 / Cos.a(tSend); const target = Fconf(xs) - chi;
+  if (target <= 0) return Infinity;
+  let lo = 0, hi = xs; for (let i = 0; i < 60; i++) { const m = (lo + hi) / 2; if (Fconf(m) > target) hi = m; else lo = m; }
+  return Cos.t(1 / ((lo + hi) / 2));
+}
+const COSMO_MIN = 1e7; // ly: beyond this, flights are integrated through the expanding universe
+
+/* =====================================================================
+   Propulsion
+   ===================================================================== */
+const KMS = 1000 / C_MS; // 1 km/s in units of c
+const DRIVES = {
+  chemical: { name: 'Chemical', w: [2.5 * KMS, 4.6 * KMS, 4.4 * KMS], sp: [1e4, 1e7, 1e6], a: 1, fuel: 1e5, pay: 100,
+    fuelLbl: 'Propellant (fuel + oxidiser)',
+    desc: 'Hydrogen burning in oxygen, as on today’s launch vehicles. Enormous thrust, but the exhaust leaves at only ~4.4 km/s, so the rocket equation is brutal: every extra 4.4 km/s of speed multiplies the starting mass by e ≈ 2.7.' },
+  ion: { name: 'Ion drive', w: [15 * KMS, 300 * KMS, 40 * KMS], sp: [3, 3000, 100], a: 1e-4, fuel: 1000, pay: 50,
+    fuelLbl: 'Propellant (xenon / argon)',
+    desc: 'Electric propulsion as flown on Dawn and BepiColombo: exhaust at 20–50 km/s (more for advanced designs like VASIMR), but thrust is limited by electrical power. The default 100 W/kg assumes an advanced nuclear-electric plant; Dawn managed about 10 W/kg on solar panels.' },
+  fusion: { name: 'Fusion', w: [0.005, 0.12, 0.04], sp: [1e5, 1e9, 1e7], a: 0.02, fuel: 5e4, pay: 500,
+    fuelLbl: 'Propellant (D / He-3 pellets)',
+    desc: 'Pulsed inertial-confinement or magnetic fusion, as in the Project Daedalus study. Exhaust at a few percent of light speed (D–He-3 tops out near 0.1 c). The defaults are roughly Daedalus-class: 50,000 t of propellant pushing a 500 t probe.' },
+  antimatter: { name: 'Antimatter', w: [0.1, 1.0, 0.33], sp: [1e7, 1e12, 1e10], a: 1, fuel: 1e4, pay: 100,
+    fuelLbl: 'Propellant (matter + antimatter)',
+    desc: 'Matter–antimatter annihilation. A beamed-core pion engine might reach an effective exhaust of 0.3–0.6 c; a perfect photon rocket (w = c) is the theoretical best any rocket can do. Making antimatter in bulk is far beyond us: CERN produces nanograms a year.' },
+  magic: { name: 'Magic', magic: true, a: 1, pay: 100,
+    desc: 'A reactionless drive with unlimited energy: constant proper acceleration for as long as you like. This is the textbook “relativistic rocket”, and the upper bound on what any acceleration profile can achieve. At 1 g you could cross the Milky Way in a crew lifetime.' },
+};
+
+// power needed per unit thrust (W/N) for exhaust speed w (units of c)
+function powerPerThrust(w) {
+  if (w >= 0.999999) return C_MS;
+  if (w < 1e-3) return w * C_MS / 2 * (1 + 0.75 * w * w);
+  const g = 1 / Math.sqrt(1 - w * w); return (g - 1) * C_MS / (g * w);
+}
+// p: {drive, w, sp, payT, fuelT, aG}
+function setupShip(p) {
+  const d = DRIVES[p.drive], payload = p.payT * 1000;
+  if (d.magic) return { ok: true, magic: true, a0: p.aG * G_LY, aG: p.aG, payload, m0: payload, mdry: payload, B: Infinity };
+  const k = powerPerThrust(p.w), aMaxG = p.sp / k / G0, frac = p.aG * G0 * k / p.sp;
+  if (!(frac < 1)) return { ok: false, aMaxG };
+  const fuel = p.fuelT * 1000, m0 = (payload + fuel) / (1 - frac), me = m0 * frac, mdry = payload + me;
+  return { ok: true, magic: false, a0: p.aG * G_LY, aG: p.aG, w: p.w, k, aMaxG, payload, fuel, m0, me, mdry,
+    MR: m0 / mdry, B: p.w * Math.log(m0 / mdry), F: m0 * p.aG * G0, P: m0 * p.aG * G0 * k };
+}
+
+/* ---------- Equations of motion ----------
+   State s = [t, φ, χ, Φ, τ]: coordinate/cosmic time, rapidity relative to local
+   comoving frame, comoving distance, rapidity delivered by the engine (fuel use),
+   proper time.  Derivatives with respect to proper time τ:
+     dt/dτ = cosh φ,   dφ/dτ = ±α − H(t) sinh φ,   dχ/dτ = sinh φ / a(t),   dΦ/dτ = α
+   With constant thrust F, α = F/m and m = m0·exp(−Φ/w)  (relativistic rocket equation).
+   In flat space (H=0, a=1) this is ordinary special relativity.                */
+function makeCtx(ship, cosmo) {
+  return { magic: ship.magic, a0: ship.a0, w: ship.w, B: ship.B, cosmo,
+    phiRef: ship.magic ? 0.05 : Math.max(Math.min(ship.B, 1) * 0.5, 1e-14) };
+}
+function deriv(ctx, s, thr, o) {
+  let al = 0;
+  if (thr !== 0) al = ctx.magic ? ctx.a0 : ctx.a0 * Math.exp(s[3] / ctx.w);
+  const ch = Math.cosh(s[1]), sh = Math.sinh(s[1]);
+  let a = 1, H = 0;
+  if (ctx.cosmo) { a = Cos.a(s[0]); H = Cos.H(a); }
+  o[0] = ch; o[1] = thr * al - H * sh; o[2] = sh / a; o[3] = thr !== 0 ? al : 0; o[4] = 1;
+  return H;
+}
+function runPhase(ctx, s0, thr, ev, rec) {
+  const s = s0.slice(), k1 = [0,0,0,0,0], k2 = [0,0,0,0,0], k3 = [0,0,0,0,0], k4 = [0,0,0,0,0], tmp = [0,0,0,0,0], sn = [0,0,0,0,0];
+  const evs = [];
+  if (ev.PhiMax != null && isFinite(ev.PhiMax)) evs.push([3, ev.PhiMax, 1, 'fuel']);
+  if (ev.phiZero) evs.push([1, 0, -1, 'stopped']);
+  if (ev.chiMax != null && isFinite(ev.chiMax)) evs.push([2, ev.chiMax, 1, 'arrived']);
+  if (ev.tMax != null) evs.push([0, ev.tMax, 1, 'timeout']);
+  if (ev.tauMax != null) evs.push([4, ev.tauMax, 1, 'tau']);
+  for (const e of evs) if ((s[e[0]] - e[1]) * e[2] >= 0) return { s, ev: e[3] };
+  for (let it = 0; it < 100000; it++) {
+    const H = deriv(ctx, s, thr, k1);
+    let h = 1e18;
+    const dphi = Math.abs(k1[1]);
+    if (dphi > 0) h = Math.min(h, 0.02 * Math.max(Math.abs(s[1]), ctx.phiRef) / dphi);
+    if (ctx.cosmo) h = Math.min(h, 0.005 / H / k1[0]);
+    for (const e of evs) { const r = k1[e[0]] * e[2]; if (r > 0) h = Math.min(h, (e[1] - s[e[0]]) * e[2] / r * 1.02); }
+    if (ctx.cosmo && thr === 0 && ev.chiMax != null) {      // coasting ship that can no longer get there
+      const a = Cos.a(s[0]), u = Math.sinh(s[1]);
+      if (ev.chiMax - s[2] > 3 * u / (H * a)) return { s, ev: 'stalled', stallChi: s[2] + u / (2 * H * a) };
+    }
+    if (!(h > 0)) h = 1e-12;
+    for (let j = 0; j < 5; j++) tmp[j] = s[j] + 0.5 * h * k1[j]; deriv(ctx, tmp, thr, k2);
+    for (let j = 0; j < 5; j++) tmp[j] = s[j] + 0.5 * h * k2[j]; deriv(ctx, tmp, thr, k3);
+    for (let j = 0; j < 5; j++) tmp[j] = s[j] + h * k3[j]; deriv(ctx, tmp, thr, k4);
+    for (let j = 0; j < 5; j++) sn[j] = s[j] + h / 6 * (k1[j] + 2 * k2[j] + 2 * k3[j] + k4[j]);
+    let best = null, bf = 2;
+    for (const e of evs) { const i = e[0]; if ((sn[i] - e[1]) * e[2] >= 0) { const f = (e[1] - s[i]) / (sn[i] - s[i]); if (f < bf) { bf = f; best = e; } } }
+    if (best) { for (let j = 0; j < 5; j++) s[j] += (sn[j] - s[j]) * bf; s[best[0]] = best[1]; if (rec) rec.push(s.slice()); return { s, ev: best[3] }; }
+    for (let j = 0; j < 5; j++) s[j] = sn[j];
+    if (rec) rec.push(s.slice());
+  }
+  return { s, ev: 'maxsteps' };
+}
+function lerpState(a, b, f) { return a.map((v, i) => v + (b[i] - v) * f); }
+function stateAt(rec, idx, val) { // rec monotone increasing in component idx
+  if (val <= rec[0][idx]) return rec[0].slice();
+  let lo = 0, hi = rec.length - 1;
+  if (val >= rec[hi][idx]) return rec[hi].slice();
+  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (rec[m][idx] < val) lo = m; else hi = m; }
+  const f = (val - rec[lo][idx]) / (rec[hi][idx] - rec[lo][idx]);
+  return lerpState(rec[lo], rec[hi], f);
+}
+
+function acosh1p(x) { return Math.log1p(x + Math.sqrt(x * (x + 2))); }
+
+// ---- flat spacetime (special relativity) ----
+function tripFlat(ship, D, mode) {
+  if (ship.magic) {
+    const a = ship.a0;
+    if (mode === 'stop') {
+      const th = acosh1p(a * D / 2) / a, t = Math.sinh(a * th) / a;
+      return { ok: true, arrived: true, t: 2 * t, tau: 2 * th, phiPeak: a * th, phiArr: 0, aPeak: a,
+        phases: [{ n: 'acc', t, tau: th }, { n: 'dec', t, tau: th }] };
+    }
+    const tau = acosh1p(a * D) / a, t = Math.sqrt(a * D * (a * D + 2)) / a;
+    return { ok: true, arrived: true, t, tau, phiPeak: a * tau, phiArr: a * tau, aPeak: a, phases: [{ n: 'acc', t, tau }] };
+  }
+  const ctx = makeCtx(ship, false), S0 = [0, 0, 0, 0, 0], B = ship.B;
+  if (mode === 'flyby') {
+    const A = runPhase(ctx, S0, 1, { PhiMax: B, chiMax: D });
+    const ph = [{ n: 'acc', t: A.s[0], tau: A.s[4] }];
+    let t = A.s[0], tau = A.s[4];
+    if (A.ev !== 'arrived') { const rest = D - A.s[2]; const ct = rest / Math.tanh(A.s[1]), cp = rest / Math.sinh(A.s[1]);
+      t += ct; tau += cp; ph.push({ n: 'coast', t: ct, tau: cp }); }
+    return { ok: true, arrived: true, t, tau, phiPeak: A.s[1], phiArr: A.s[1], PhiUsed: A.s[3], aPeak: ship.a0 * Math.exp(A.s[3] / ship.w), phases: ph };
+  }
+  const legs = p => [runPhase(ctx, S0, 1, { PhiMax: p }).s, runPhase(ctx, [0, p, 0, p, 0], -1, { phiZero: true }).s];
+  let p = B / 2, L = legs(p);
+  if (L[0][2] + L[1][2] > D) {
+    let lo = 0, hi = p;
+    for (let i = 0; i < 55; i++) { const m = (lo + hi) / 2, Lm = legs(m); if (Lm[0][2] + Lm[1][2] > D) hi = m; else lo = m; }
+    p = lo; L = legs(p);
+  }
+  const [A, Bk] = L, rest = Math.max(0, D - A[2] - Bk[2]);
+  const ct = p > 0 ? rest / Math.tanh(p) : Infinity, cp = p > 0 ? rest / Math.sinh(p) : Infinity;
+  const phases = [{ n: 'acc', t: A[0], tau: A[4] }];
+  if (rest > 0) phases.push({ n: 'coast', t: ct, tau: cp });
+  phases.push({ n: 'dec', t: Bk[0], tau: Bk[4] });
+  return { ok: true, arrived: true, t: A[0] + ct + Bk[0], tau: A[4] + cp + Bk[4], phiPeak: p, phiArr: 0,
+    PhiUsed: Bk[3], aPeak: ship.a0 * Math.exp(Bk[3] / ship.w), phases };
+}
+
+// ---- expanding universe ----
+function tripCosmo(ship, D, mode, quality) {
+  const t0 = Cos.t0, tMax = t0 + 1e12, S0 = [t0, 0, 0, 0, 0], ctx = makeCtx(ship, true), B = ship.B;
+  const fail = (reason, extra) => Object.assign({ ok: true, arrived: false, cosmo: true, reason }, extra || {});
+  if (D >= EVENT_HORIZON) return fail('horizon');
+  const fin = (sEnd, phases, phiPeak, phiArr) => ({ ok: true, arrived: true, cosmo: true, t: sEnd[0] - t0, tArr: sEnd[0],
+    tau: sEnd[4], phiPeak, phiArr, PhiUsed: sEnd[3], aPeak: ship.magic ? ship.a0 : ship.a0 * Math.exp(sEnd[3] / ship.w), phases });
+  const ph = (n, a, b) => ({ n, t: b[0] - a[0], tau: b[4] - a[4] });
+
+  if (mode === 'flyby') {
+    const A = runPhase(ctx, S0, 1, { PhiMax: B, chiMax: D, tMax });
+    if (A.ev === 'arrived') return fin(A.s, [ph('acc', S0, A.s)], A.s[1], A.s[1]);
+    if (ship.magic) return fail('horizon');
+    const C = runPhase(ctx, A.s, 0, { chiMax: D, tMax });
+    if (C.ev === 'arrived') return fin(C.s, [ph('acc', S0, A.s), ph('coast', A.s, C.s)], A.s[1], C.s[1]);
+    return fail('stalled', { stallChi: C.stallChi || C.s[2] });
+  }
+  // rendezvous
+  const accRec = [S0.slice()];
+  const acc = runPhase(ctx, S0, 1, { PhiMax: B, chiMax: D, tMax }, accRec);
+  if (ship.magic && acc.ev !== 'arrived') return fail('horizon');
+  const brake = s => runPhase(ctx, s, -1, { phiZero: true, PhiMax: B, tMax });
+  const iters = quality === 'low' ? 26 : 45;
+  if (ship.magic) {
+    let lo = 0, hi = acc.s[4];
+    for (let i = 0; i < iters; i++) { const m = (lo + hi) / 2, s = stateAt(accRec, 4, m), b = brake(s);
+      if (b.s[2] > D) hi = m; else lo = m; }
+    const s1 = stateAt(accRec, 4, lo), b = brake(s1);
+    return fin(b.s, [ph('acc', S0, s1), ph('dec', s1, b.s)], s1[1], 0);
+  }
+  const accDist = Phi => { if (Phi > accRec[accRec.length - 1][3]) return null; return stateAt(accRec, 3, Phi); };
+  function tryF(f) {
+    const s1 = accDist(f * B); if (!s1) return { over: true };
+    const b0 = brake(s1);
+    if (b0.ev === 'stopped' && b0.s[2] > D) return { over: true };
+    const cr = [s1.slice()];
+    runPhase(ctx, s1, 0, { chiMax: D, tMax }, cr);
+    const P = s => { const b = brake(s); return (b.ev === 'stopped' && b.s[2] >= D) ? b : null; };
+    if (!P(cr[cr.length - 1])) return { bad: true };
+    let lo = 0, hi = cr.length - 1;
+    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (P(cr[m])) hi = m; else lo = m; }
+    let flo = 0, fhi = 1;
+    for (let i = 0; i < (quality === 'low' ? 14 : 28); i++) { const m = (flo + fhi) / 2; if (P(lerpState(cr[lo], cr[hi], m))) fhi = m; else flo = m; }
+    const sc = lerpState(cr[lo], cr[hi], fhi), b = brake(sc);
+    if (b.ev !== 'stopped' || Math.abs(b.s[2] - D) > 2e-3 * D) return { bad: true };
+    return { s1, sc, b };
+  }
+  const grid = quality === 'low' ? [0.5, 0.7, 0.85, 0.95] : [0.5, 0.6, 0.7, 0.8, 0.86, 0.91, 0.95, 0.98];
+  let best = null;
+  for (const f of grid) {
+    const r = tryF(f);
+    if (r.over) { if (f === 0.5) best = 'short'; break; }
+    if (r.bad) continue;
+    if (!best || r.b.s[0] < best.b.s[0]) best = r;
+  }
+  if (best === 'short') { // too close to reach cruise speed: brake straight after accelerating
+    let lo = 0, hi = 0.5;
+    for (let i = 0; i < iters; i++) { const m = (lo + hi) / 2, s = accDist(m * B); const b = s ? brake(s) : null;
+      if (!b || b.s[2] > D) hi = m; else lo = m; }
+    const s1 = accDist(lo * B), b = brake(s1);
+    return fin(b.s, [ph('acc', S0, s1), ph('dec', s1, b.s)], s1[1], 0);
+  }
+  if (!best) {
+    const fb = tripCosmo(ship, D, 'flyby', quality);
+    return fail(fb.arrived ? 'nostop' : 'stalled', { stallChi: fb.stallChi });
+  }
+  return fin(best.b.s, [ph('acc', S0, best.s1), ph('coast', best.s1, best.sc), ph('dec', best.sc, best.b.s)], best.s1[1], 0);
+}
+function planTrip(params, D, mode, quality) {
+  const ship = setupShip(params);
+  if (!ship.ok) return { ok: false, ship };
+  const r = D > COSMO_MIN ? tripCosmo(ship, D, mode, quality) : tripFlat(ship, D, mode);
+  r.ship = ship;
+  return r;
+}
+window.CosmicPhysics = { planTrip, setupShip, tripFlat, tripCosmo, Cos, chiOfZ, EVENT_HORIZON, G_LY, messageArrival };
+
+/* =====================================================================
+   Catalogue.  RA/Dec (deg, J2000) → galactic Cartesian, Sun at origin:
+   +x toward the Galactic Centre, +z toward the north galactic pole.
+   d: distance in ly, or {z} for a cosmological redshift.
+   ===================================================================== */
+const EQ2GAL = [[-0.0548755604, -0.8734370902, -0.4838350155], [0.4941094279, -0.4448296300, 0.7469822445], [-0.8676661490, -0.1980763734, 0.4559837762]];
+function radec(ra, dec, d) { const a = ra * D2R, b = dec * D2R, x = Math.cos(b) * Math.cos(a), y = Math.cos(b) * Math.sin(a), z = Math.sin(b), M = EQ2GAL;
+  return [(M[0][0] * x + M[0][1] * y + M[0][2] * z) * d, (M[1][0] * x + M[1][1] * y + M[1][2] * z) * d, (M[2][0] * x + M[2][1] * y + M[2][2] * z) * d]; }
+function galLB(l, b, d) { l *= D2R; b *= D2R; return [Math.cos(b) * Math.cos(l) * d, Math.cos(b) * Math.sin(l) * d, Math.sin(b) * d]; }
+const GC_DIST = 26670, GC = [GC_DIST, 0, 0];
+
+const CAT_RAW = [
+ ['Sun', 'sun', null, null, 0, 'G', 'Our star, and the starting point of every journey.'],
+ ['Proxima Centauri','s',217.429,-62.680,4.246,'M','The nearest star to the Sun: a red dwarf with an Earth-mass planet, Proxima b, in its habitable zone.'],
+ ['Alpha Centauri A & B','s',219.902,-60.834,4.37,'G','A Sun-like binary pair, the brightest members of the nearest star system.'],
+ ["Barnard's Star",'s',269.452,4.693,5.96,'M','A red dwarf with the fastest motion across our sky; the target of the Project Daedalus study.'],
+ ['Luhman 16','s',162.33,-53.32,6.5,'L','The nearest brown dwarfs: a pair of “failed stars”.'],
+ ['WISE 0855−0714','s',133.79,-7.24,7.4,'L','The coldest brown dwarf known, about as cold as the North Pole.'],
+ ['Wolf 359','s',164.12,7.01,7.86,'M','A dim, flaring red dwarf.'],
+ ['Lalande 21185','s',165.83,35.97,8.31,'M','One of the brightest red dwarfs in our sky, with at least one planet.'],
+ ['Sirius','s',101.287,-16.716,8.60,'A','The brightest star in the night sky, with a white-dwarf companion.'],
+ ['Gliese 65','s',24.76,-17.95,8.73,'M','A pair of flare stars (Luyten 726-8).'],
+ ['Ross 154','s',282.46,-23.84,9.7,'M','A red dwarf flare star in Sagittarius.'],
+ ['Ross 248','s',355.48,44.18,10.3,'M','In about 36,000 years this will briefly be the closest star to the Sun.'],
+ ['Epsilon Eridani','s',53.23,-9.46,10.5,'K','A young Sun-like star with a debris disc and a giant planet.'],
+ ['Lacaille 9352','s',346.47,-35.85,10.7,'M','A bright red dwarf with two super-Earths.'],
+ ['Ross 128','s',176.94,0.80,11.0,'M','A quiet red dwarf hosting a temperate Earth-sized planet.'],
+ ['EZ Aquarii','s',334.32,-15.29,11.1,'M','A triple red-dwarf system.'],
+ ['Procyon','s',114.83,5.22,11.46,'F','A bright yellow-white star with a white-dwarf companion.'],
+ ['61 Cygni','s',316.72,38.75,11.4,'K','The first star to have its distance measured (Bessel, 1838).'],
+ ['Struve 2398','s',280.69,59.63,11.5,'M','A pair of red dwarfs in Draco.'],
+ ['Groombridge 34','s',4.60,44.02,11.6,'M','A wide red-dwarf binary.'],
+ ['Epsilon Indi','s',330.84,-56.79,11.87,'K','An orange dwarf with a giant planet and two brown-dwarf companions.'],
+ ['DX Cancri','s',128.33,26.78,11.8,'M','A tiny flare star.'],
+ ['Tau Ceti','s',26.02,-15.94,11.9,'G','The nearest lone Sun-like star; may host several planets.'],
+ ['Gliese 1061','s',53.99,-44.51,12.0,'M','A red dwarf with three Earth-mass planets.'],
+ ['YZ Ceti','s',18.13,-16.99,12.1,'M','A red dwarf with three close-in rocky planets.'],
+ ["Luyten's Star",'s',111.85,5.23,12.2,'M','A red dwarf with a super-Earth in its habitable zone.'],
+ ["Teegarden's Star",'s',43.25,16.88,12.5,'M','A tiny red dwarf with two Earth-like planets.'],
+ ["Kapteyn's Star",'s',77.92,-45.02,12.8,'M','An ancient halo star, possibly from a captured dwarf galaxy.'],
+ ['Lacaille 8760','s',319.31,-38.87,12.9,'M','One of the largest red dwarfs nearby.'],
+ ['Kruger 60','s',337.0,57.70,13.1,'M','A red-dwarf binary.'],
+ ['Wolf 1061','s',247.58,-12.66,14.0,'M','A red dwarf with three planets.'],
+ ["Van Maanen's Star",'s',12.29,5.39,14.1,'D','The nearest solitary white dwarf.'],
+ ['Gliese 876','s',343.32,-14.26,15.2,'M','A red dwarf with four planets in resonant orbits.'],
+ ['Altair','s',297.70,8.87,16.7,'A','A rapidly spinning white star, flattened by its own rotation.'],
+ ['Gliese 581','s',229.86,-7.72,20.5,'M','A red dwarf with several planets.'],
+ ['Vega','s',279.23,38.78,25.0,'A','Once the pole star, and the zero-point of the magnitude scale.'],
+ ['Fomalhaut','s',344.41,-29.62,25.1,'A','A young star ringed by a spectacular dust belt.'],
+ ['Pollux','s',116.33,28.03,33.8,'K','The nearest giant star, with a planet.'],
+ ['Arcturus','s',213.92,19.18,36.7,'K','An orange giant: the brightest star in the northern sky.'],
+ ['TRAPPIST-1','s',346.62,-5.04,40.7,'M','An ultracool dwarf with seven Earth-sized planets, three in the habitable zone.'],
+ ['Capella','s',79.17,46.0,42.9,'G','Two yellow giants in a tight orbit.'],
+ ['Aldebaran','s',68.98,16.51,65.3,'K','The red eye of Taurus.'],
+ ['Regulus','s',152.09,11.97,79.3,'B','The heart of Leo.'],
+ ['Spica','s',201.30,-11.16,250,'B','A pair of hot blue stars in Virgo.'],
+ ['Canopus','s',95.99,-52.70,310,'F','The second-brightest star in the night sky.'],
+ ['Polaris','s',37.95,89.26,433,'F','The North Star.'],
+ ['Betelgeuse','s',88.79,7.41,548,'M','A red supergiant in Orion that will explode as a supernova, probably within 100,000 years.'],
+ ['Antares','s',247.35,-26.43,550,'M','A red supergiant, the heart of Scorpius.'],
+ ['Kepler-186','s',298.65,43.95,580,'M','Host of the first Earth-sized planet found in a habitable zone.'],
+ ['Rigel','s',78.63,-8.20,860,'B','A blue supergiant, Orion’s foot.'],
+ ['Kepler-452','s',296.0,44.28,1800,'G','A Sun-like star hosting “Earth’s cousin”, Kepler-452b.'],
+ ['Deneb','s',310.36,45.28,2600,'A','One of the most luminous stars visible to the naked eye.'],
+ ['Hyades','oc',66.75,15.87,153,'','The nearest open star cluster.'],
+ ['Pleiades','oc',56.75,24.12,444,'','The Seven Sisters: a young cluster of hot blue stars.'],
+ ['Helix Nebula','n',337.41,-20.84,650,'','A planetary nebula: the shed outer layers of a dying Sun-like star.'],
+ ['Orion Nebula','n',83.82,-5.39,1344,'','The nearest large star-forming region.'],
+ ['Gaia BH1','n',262.17,-0.58,1560,'','The nearest known black hole, orbited by a Sun-like star.'],
+ ['Ring Nebula','n',283.40,33.03,2570,'','A classic planetary nebula in Lyra.'],
+ ['Lagoon Nebula','n',270.92,-24.38,4100,'','A giant cloud of glowing hydrogen in Sagittarius.'],
+ ['Eagle Nebula','n',274.70,-13.81,5700,'','Home of the “Pillars of Creation”.'],
+ ['Crab Nebula','n',83.63,22.01,6500,'','The wreck of a star seen exploding in 1054 AD, with a pulsar at its heart.'],
+ ['Cygnus X-1','n',299.59,35.20,7200,'','The first black hole ever identified.'],
+ ['Eta Carinae','n',161.27,-59.68,7500,'','A hypergiant star system on the brink of exploding.'],
+ ['M4','gc',245.90,-26.53,7200,'','The nearest globular cluster.'],
+ ['47 Tucanae','gc',6.02,-72.08,14700,'','A brilliant globular cluster of about a million stars.'],
+ ['Omega Centauri','gc',201.70,-47.48,17090,'','The Milky Way’s largest globular cluster, perhaps the core of a devoured dwarf galaxy.'],
+ ['M13 (Hercules Cluster)','gc',250.42,36.46,22200,'','Target of the 1974 Arecibo radio message.'],
+ ['Sagittarius A* (Galactic Centre)','mw','gal',0,GC_DIST,'','The supermassive black hole at the heart of the Milky Way: 4 million solar masses.'],
+ ['Milky Way','mwgal','gal',0,GC_DIST,'','Our home galaxy: a barred spiral ~100,000 ly across with several hundred billion stars.'],
+ ['Sagittarius Dwarf Galaxy','sat',283.76,-30.48,70000,'','A small galaxy being torn apart and absorbed by the Milky Way.',10000],
+ ['Large Magellanic Cloud','sat',80.89,-69.76,163000,'','The largest satellite galaxy of the Milky Way.',14000],
+ ['Small Magellanic Cloud','sat',13.19,-72.83,200000,'','A dwarf irregular galaxy orbiting the Milky Way.',7000],
+ ['Leo I','lg',152.12,12.31,8.2e5,'','A distant dwarf spheroidal satellite of the Milky Way.',2000],
+ ['NGC 6822','lg',296.24,-14.80,1.6e6,'','Barnard’s Galaxy, a dwarf irregular in the Local Group.',7000],
+ ['IC 10','lg',5.07,59.30,2.2e6,'','A starburst dwarf galaxy hidden behind the Milky Way’s dust.',5000],
+ ['IC 1613','lg',16.20,2.12,2.4e6,'','A faint dwarf irregular galaxy.',10000],
+ ['M32','lg',10.67,40.87,2.49e6,'','A compact elliptical satellite of Andromeda.',6500],
+ ['Andromeda Galaxy (M31)','lg',10.68,41.27,2.54e6,'','The nearest large galaxy. It is falling toward us and will merge with the Milky Way in ~4.5 billion years.',0],
+ ['M110','lg',10.09,41.69,2.69e6,'','A dwarf elliptical satellite of Andromeda.',17000],
+ ['Triangulum Galaxy (M33)','lg',23.46,30.66,2.73e6,'','The third-largest Local Group galaxy; the most distant object visible to the naked eye.',0],
+ ['WLM','lg',0.49,-15.46,3.0e6,'','An isolated dwarf galaxy at the Local Group’s edge.',8000],
+ ['Maffei 1','gal',39.15,59.65,1.0e7,'','A giant elliptical hidden behind the Milky Way’s plane.',75000],
+ ['IC 342','gal',56.70,68.10,1.07e7,'','A face-on spiral obscured by Milky Way dust.',75000],
+ ['Sculptor Galaxy (NGC 253)','gal',11.89,-25.29,1.14e7,'','A dusty starburst spiral.',90000],
+ ['Cigar Galaxy (M82)','gal',148.97,69.68,1.15e7,'','A starburst galaxy blowing out superwinds.',37000],
+ ["Bode's Galaxy (M81)",'gal',148.89,69.07,1.18e7,'','A grand-design spiral, the largest of its group.',0],
+ ['Centaurus A','gal',201.37,-43.02,1.2e7,'','A giant elliptical whose black hole drives huge radio jets.',0],
+ ['Pinwheel Galaxy (M101)','gal',210.80,54.35,2.1e7,'','A huge face-on spiral.',0],
+ ['Whirlpool Galaxy (M51)','gal',202.47,47.20,2.3e7,'','A spiral interacting with a smaller companion.',0],
+ ['Fireworks Galaxy (NGC 6946)','gal',308.72,60.15,2.5e7,'','A spiral with an exceptional rate of supernovae.',40000],
+ ['Sombrero Galaxy (M104)','gal',190.00,-11.62,3.1e7,'','An edge-on galaxy with a bright bulge and dust lane.',50000],
+ ['Leo Triplet','gal',170.06,12.99,3.6e7,'','Three interacting spirals.',95000],
+ ['Needle Galaxy (NGC 4565)','gal',189.09,25.99,4.0e7,'','A spectacular edge-on spiral.',190000],
+ ['M87 (Virgo A)','gal',187.71,12.39,5.35e7,'','Giant elliptical at the core of the Virgo Cluster; its black hole was the first ever imaged.',132000],
+ ['NGC 1300','gal',49.92,-19.41,6.1e7,'','A textbook barred spiral.',110000],
+ ['Virgo Cluster','cl',187.7,12.7,5.4e7,'','The nearest large galaxy cluster: about 1,500 galaxies.',1.2e7],
+ ['Fornax Cluster','cl',54.62,-35.45,6.2e7,'','The second-richest cluster within 100 million ly.',6e6],
+ ['Eridanus Cluster','cl',55.0,-21.0,7.5e7,'','A loose group of about 200 galaxies.',6e6],
+ ['Hydra Cluster','cl',159.17,-27.53,1.6e8,'','A rich galaxy cluster in the Hydra–Centaurus supercluster.',1e7],
+ ['Centaurus Cluster','cl',192.20,-41.31,1.7e8,'','A rich cluster in the Hydra–Centaurus supercluster.',1e7],
+ ['Norma Cluster','cl',243.59,-60.91,2.2e8,'','A massive cluster near the Great Attractor.',1e7],
+ ['Perseus Cluster','cl',49.95,41.51,2.4e8,'','One of the most massive objects nearby; its hot gas “hums” a B-flat 57 octaves below middle C.',1.2e7],
+ ['Coma Cluster','cl',194.95,27.98,3.2e8,'','A rich cluster of over 1,000 galaxies, where dark matter was first inferred (Zwicky, 1933).',1.4e7],
+ ['Bullet Cluster','cl',104.6,-55.95,{z:0.296},'','Two colliding clusters: the classic evidence for dark matter.',1.5e7],
+ ['Phoenix Cluster','cl',356.18,-42.72,{z:0.597},'','One of the most massive clusters known, with a furious starburst.',1.5e7],
+ ['El Gordo','cl',15.72,-49.25,{z:0.87},'','“The fat one”: a huge colliding cluster in the young universe.',1.5e7],
+ ['Virgo Supercluster','sc',187.7,12.7,3.2e7,'','The Local Supercluster: the Local Group sits near its outskirts.'],
+ ['Local Void','void',285,18,7.5e7,'','A vast, nearly empty region bordering the Local Group.'],
+ ['Laniakea Supercluster','sc',230,-48,1.9e8,'','“Immeasurable heaven”: our home supercluster, ~500 million ly across, containing ~100,000 galaxies.'],
+ ['Great Attractor','sc',244,-64,2.5e8,'','A gravitational focus toward which the Local Group and thousands of galaxies flow.'],
+ ['Pisces–Perseus Supercluster','sc',30,35,2.5e8,'','A long chain of galaxy clusters.'],
+ ['CfA2 Great Wall','sc',192,32,3.3e8,'','A sheet of galaxies ~500 million ly long.'],
+ ['Hercules Supercluster','sc',241.3,17.7,5.0e8,'','A chain of rich clusters in Hercules.'],
+ ['Shapley Supercluster','sc',201.98,-31.5,6.5e8,'','The largest concentration of galaxies in the nearby universe.'],
+ ['Boötes Void','void',218,46,7.0e8,'','“The Great Nothing”: a void ~330 million ly across.'],
+ ['Sloan Great Wall','sc',195,3,{z:0.073},'','A wall of galaxies ~1.4 billion ly long.'],
+ ['3C 273','hz',187.28,2.05,{z:0.158},'','The first quasar identified (1963) and the brightest in our sky.'],
+ ['Giant Arc','sc',165,22,{z:0.8},'','A crescent of galaxies ~3 billion ly long.'],
+ ['Hercules–Corona Borealis Great Wall','sc',240,27,{z:1.8},'','Possibly the largest structure known, ~10 billion ly across.'],
+ ['TON 618','hz',188.0,31.48,{z:2.219},'','A hyperluminous quasar with one of the most massive black holes known (~40 billion Suns).'],
+ ['ULAS J1342+0928','hz',205.53,9.48,{z:7.54},'','A quasar seen when the universe was 690 million years old.'],
+ ['GN-z11','hz',189.106,62.24,{z:10.6},'','A luminous young galaxy, seen 430 million years after the Big Bang.'],
+ ['JADES-GS-z14-0','hz',53.08,-27.86,{z:14.32},'','One of the most distant galaxies confirmed (JWST), seen 290 million years after the Big Bang.'],
+ ['Cosmic Microwave Background','cmb',266,-29,{z:1090},'','The edge of the observable universe: light released 380,000 years after the Big Bang. The matter that emitted it is now ~46 billion ly away.'],
+];
+
+const TYPEDEF = {
+  sun:  { pt: 4e5,  lb: [0, 3e5],     prio: 100, ps: 5.5, col: [1, .93, .6], fly: 8 },
+  s:    { pt: 2500, lb: [0, 90],      prio: 40, ps: 3.2, fly: 3 },
+  oc:   { pt: 4e4,  lb: [20, 6000],   prio: 30, ps: 3.6, col: [.7, .8, 1], fly: 40 },
+  n:    { pt: 8e4,  lb: [100, 15000], prio: 30, ps: 3.6, col: [1, .55, .7], fly: 60 },
+  gc:   { pt: 1.5e6, lb: [3000, 3e5], prio: 25, ps: 3.2, col: [1, .9, .7], fly: 300 },
+  mw:   { pt: 3e5,  lb: [2500, 2.5e5], prio: 60, ps: 4, col: [1, .85, .6], fly: 6000 },
+  mwgal:{ pt: 0,    lb: [2.5e5, 6e7],   prio: 70, ps: 0, fly: 9e4 },
+  sat:  { pt: 4e7,  lb: [1.5e4, 6e6], prio: 45, ps: 3, col: [.85, .8, 1], fly: 2.5e4 },
+  lg:   { pt: 4e8,  lb: [1.5e5, 3e7], prio: 50, ps: 3, col: [.85, .8, 1], fly: 2e5 },
+  gal:  { pt: 3e9,  lb: [3e6, 2.5e8], prio: 35, ps: 2.6, col: [.85, .8, 1], fly: 2e5 },
+  cl:   { pt: 4e10, lb: [3e7, 4e9],   prio: 45, ps: 3.4, col: [1, .85, .55], fly: 1.5e7 },
+  sc:   { pt: 0,    lb: [8e7, 1.5e10], prio: 55, ps: 0, fly: 3e8 },
+  void: { pt: 0,    lb: [5e7, 6e9],   prio: 20, ps: 0, fly: 2e8 },
+  hz:   { pt: 5e11, lb: [1.2e9, 5e11], prio: 40, ps: 3.2, col: [1, .6, .8], fly: 3e8 },
+  cmb:  { pt: 0,    lb: [5e9, 5e11],  prio: 80, ps: 0, fly: 3e10 },
+};
+const SPEC = { O: [.6, .7, 1], B: [.68, .78, 1], A: [.85, .9, 1], F: [1, 1, .93], G: [1, .93, .75], K: [1, .78, .52], M: [1, .6, .42], L: [.85, .42, .32], D: [.85, .9, 1] };
+const TYPE_NAME = { sun: 'Star', s: 'Star', oc: 'Open star cluster', n: 'Nebula / stellar remnant', gc: 'Globular cluster', mw: 'Galactic Centre', mwgal: 'Galaxy',
+  sat: 'Satellite galaxy', lg: 'Local Group galaxy', gal: 'Galaxy', cl: 'Galaxy cluster', sc: 'Large-scale structure', void: 'Cosmic void', hz: 'Distant quasar / galaxy', cmb: 'Cosmic horizon' };
+
+const CAT = CAT_RAW.map(r => {
+  const [name, type, ra, dec, dd, sp, info, size] = r;
+  const td = TYPEDEF[type];
+  let d, z = null;
+  if (dd && typeof dd === 'object') { z = dd.z; d = chiOfZ(z); } else d = dd;
+  const pos = type === 'sun' ? [0, 0, 0] : (ra === 'gal' ? galLB(0, 0, d) : radec(ra, dec, d));
+  if (z === null && d > 3e7) z = zOfChi(d);
+  const o = { name, type, pos, d, z, info, spec: sp, size: size || 0, td,
+    lb: td.lb.slice(), pt: td.pt, prio: td.prio, ps: td.ps, col: (type === 's' || type === 'sun') ? (SPEC[sp] || [1, 1, 1]) : td.col };
+  if (type === 's') {
+    if (d > 100) { o.lb = [15, 5000]; o.pt = 1e5; o.ps = 3.6; o.prio = 38; }
+    else if (d > 16) { o.lb = [0, 450]; o.pt = 1e4; o.ps = 3.4; }
+    if (/Proxima|Alpha Cen|Sirius/.test(name)) { o.lb[1] = 160; o.prio = 48; }
+  }
+  if (type === 'mw') o.pt = 3e5;
+  if (/M31|M33|Large Magellanic/.test(name)) o.prio = 65;
+  return o;
+});
+const BYNAME = Object.fromEntries(CAT.map(o => [o.name, o]));
+
+/* =====================================================================
+   Three.js scene.  Floating origin + scale:  every frame, each object's
+   render-space position = (position_ly − focus_ly) / R, where R is the
+   current view radius in ly.  All long-range arithmetic stays in doubles;
+   the GPU only ever sees numbers of order 1.
+   ===================================================================== */
+const canvas = document.getElementById('gl');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setClearColor(0x02030a, 1);
+const scene = new THREE.Scene();
+const FOV = 50, CAM_DIST = 1 / Math.tan(FOV / 2 * D2R);
+const camera = new THREE.PerspectiveCamera(FOV, 1, 1e-4, 1e7);
+camera.up.set(0, 0, 1);
+
+const VS = `
+attribute vec3 acol; attribute float psize; attribute float wsize; attribute float aalpha;
+uniform float uScale, uProj, uOpacity, uDpr, uMaxPx;
+varying vec3 vCol; varying float vA;
+void main(){
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  gl_Position = projectionMatrix * mv;
+  float d = -mv.z;
+  float ws = wsize * uScale * uProj / max(d, 1e-6);
+  float s = max(psize * uDpr, ws);
+  float a = aalpha * uOpacity;
+  if (s > uMaxPx) { a *= uMaxPx / s; s = uMaxPx; }
+  if (d <= 0.0) a = 0.0;
+  gl_PointSize = s;
+  vCol = acol; vA = a;
+}`;
+const FS = `
+varying vec3 vCol; varying float vA;
+void main(){
+  vec2 c = gl_PointCoord - 0.5; float r2 = dot(c, c) * 4.0;
+  if (r2 > 1.0) discard;
+  float f = exp(-r2 * 9.0) + 0.28 * exp(-r2 * 2.5);
+  gl_FragColor = vec4(vCol * f * vA, 1.0);
+}`;
+const allMats = [];
+function pointMaterial() {
+  const m = new THREE.ShaderMaterial({ uniforms: { uScale: { value: 1 }, uProj: { value: 500 }, uOpacity: { value: 1 }, uDpr: { value: 1 }, uMaxPx: { value: 160 } },
+    vertexShader: VS, fragmentShader: FS, transparent: true, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending });
+  allMats.push(m); return m;
+}
+function makePoints(d) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(d.pos, 3));
+  g.setAttribute('acol', new THREE.BufferAttribute(d.col, 3));
+  g.setAttribute('psize', new THREE.BufferAttribute(d.ps, 1));
+  g.setAttribute('wsize', new THREE.BufferAttribute(d.ws, 1));
+  g.setAttribute('aalpha', new THREE.BufferAttribute(d.al, 1));
+  const p = new THREE.Points(g, pointMaterial()); p.frustumCulled = false; scene.add(p); return p;
+}
+class Buf { constructor(n) { this.n = 0; this.pos = new Float32Array(n * 3); this.col = new Float32Array(n * 3); this.ps = new Float32Array(n); this.ws = new Float32Array(n); this.al = new Float32Array(n); }
+  add(x, y, z, c, ps, ws, al) { const i = this.n++; if (i * 3 >= this.pos.length) { this.n--; return; } this.pos[i * 3] = x; this.pos[i * 3 + 1] = y; this.pos[i * 3 + 2] = z;
+    this.col[i * 3] = c[0]; this.col[i * 3 + 1] = c[1]; this.col[i * 3 + 2] = c[2]; this.ps[i] = ps; this.ws[i] = ws; this.al[i] = al; }
+  done() { const n = this.n; return { pos: this.pos.subarray(0, n * 3), col: this.col.subarray(0, n * 3), ps: this.ps.subarray(0, n), ws: this.ws.subarray(0, n), al: this.al.subarray(0, n) }; } }
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const rnd = mulberry32(20261115);
+function gauss() { let u = 0; while (u === 0) u = rnd(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rnd()); }
+function mixc(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; }
+
+// layers: {obj, anchor, unit, fade:[a,b,c,d]}
+const layers = [];
+function addLayer(obj, anchor, unit, fade) { const L = { obj, anchor, unit, fade }; layers.push(L); return L; }
+
+// --- field stars (illustrative) around the Sun ---
+{
+  const b = new Buf(26000);
+  const pal = [SPEC.M, SPEC.K, SPEC.G, SPEC.F, SPEC.A, SPEC.B];
+  for (let i = 0; i < 26000; i++) {
+    const r = 2600 * Math.sqrt(rnd()), th = rnd() * 2 * Math.PI, x = r * Math.cos(th), y = r * Math.sin(th), z = gauss() * 650;
+    if (Math.hypot(x, y, z) < 22) continue;
+    const c = pal[Math.min(5, Math.floor(Math.pow(rnd(), 1.6) * 6))];
+    b.add(x, y, z, c, 0.8 + rnd() * 1.4, 0, 0.35 + rnd() * 0.4);
+  }
+  addLayer(makePoints(b.done()), [0, 0, 0], 1, [0, 0, 3000, 25000]);
+}
+
+// --- Milky Way (illustrative barred spiral; Sun on the Orion Spur) ---
+const TANP = Math.tan(12 * D2R);
+const ARMS = [ // radius where each arm crosses the GC→Sun line
+  { name: 'Sagittarius–Carina Arm', R: 22500 }, { name: 'Perseus Arm', R: 31500 },
+  { name: 'Scutum–Centaurus Arm', R: 16000 }, { name: 'Norma Arm', R: 11500 } ];
+// galactocentric (X',Y'), X' pointing GC→Sun, → Sun-centred galactic coordinates
+const gcToSun = (X, Y, Z) => [GC_DIST - X, -Y, Z];
+const armPoint = (Rj, R) => { const th = Math.log(R / Rj) / TANP; return [R * Math.cos(th), R * Math.sin(th)]; };
+const ARM_LABELS = [];
+{
+  const N = 110000, b = new Buf(N);
+  const cBulge = [1, .82, .55], cArm = [.62, .74, 1], cHII = [1, .45, .62], cDisk = [1, .9, .74];
+  const barAng = 27 * D2R;
+  for (let i = 0; i < N; i++) {
+    const u = rnd(); let X, Y, Z, c, ps = 1.1, ws = 190, al = .3;
+    if (u < .13) { X = gauss() * 3300; Y = gauss() * 3300; Z = gauss() * 2300; c = cBulge; ws = 260; al = .35; }
+    else if (u < .21) { const L = (rnd() * 2 - 1) * 14000, w = gauss() * 2300; X = L * Math.cos(barAng) - w * Math.sin(barAng); Y = L * Math.sin(barAng) + w * Math.cos(barAng); Z = gauss() * 700; c = cBulge; ws = 230; }
+    else if (u < .74) {
+      const arm = ARMS[(rnd() * 4) | 0]; let R; do { R = 6000 + (-Math.log(1 - rnd())) * 13000; } while (R > 62000);
+      const th = Math.log(R / arm.R) / TANP, spread = gauss() * 1300 * Math.sqrt(R / 26000);
+      X = (R + spread) * Math.cos(th) + gauss() * 400; Y = (R + spread) * Math.sin(th) + gauss() * 400; Z = gauss() * 300;
+      c = rnd() < .08 ? cHII : mixc(cArm, [1, 1, 1], rnd() * .5); ws = 170; al = .34;
+    } else if (u < .77) { // Orion Spur
+      const R = 23500 + rnd() * 7000, th = (R - 26670) / 26670 * 1.6 + gauss() * .02;
+      X = R * Math.cos(th) + gauss() * 500; Y = R * Math.sin(th) + gauss() * 500; Z = gauss() * 250; c = mixc(cArm, [1, 1, 1], .4); ws = 140; al = .3;
+    } else { let R; do { R = -Math.log(1 - rnd()) * 11000; } while (R > 60000); const th = rnd() * 2 * Math.PI;
+      X = R * Math.cos(th); Y = R * Math.sin(th); Z = gauss() * 900; c = cDisk; ws = 200; al = .2; }
+    b.add(GC_DIST - X - GC_DIST, -Y, Z, c, ps, ws, al); // stored relative to GC anchor
+  }
+  addLayer(makePoints(b.done()), GC, 1, [700, 5000, 4e6, 4e7]);
+  const lab = (name, X, Y) => ARM_LABELS.push({ name, pos: gcToSun(X, Y, 0) });
+  lab('Sagittarius–Carina Arm', ...armPoint(22500, 24000).map((v, i) => v));
+  lab('Perseus Arm', ...armPoint(31500, 29800));
+  lab('Scutum–Centaurus Arm', ...armPoint(16000, 19000));
+  lab('Norma Arm', ...armPoint(11500, 14500));
+  lab('Outer Arm', ...armPoint(11500 * Math.exp(2 * Math.PI * TANP), 40000));
+  lab('Orion Spur', 27500, 1600);
+  lab('Galactic Bar', 9000 * Math.cos(27 * D2R + Math.PI), 9000 * Math.sin(27 * D2R + Math.PI));
+}
+// --- halo globular clusters (illustrative) ---
+{
+  const b = new Buf(160);
+  for (let i = 0; i < 160; i++) { const r = Math.pow(rnd(), 1.8) * 100000 + 1500, v = [gauss(), gauss(), gauss()], n = Math.hypot(...v);
+    b.add(v[0] / n * r, v[1] / n * r, v[2] / n * r, [1, .9, .7], 1.6, 90, .7); }
+  addLayer(makePoints(b.done()), GC, 1, [6000, 2e4, 2e6, 1.5e7]);
+}
+// --- particle galaxies for notable neighbours ---
+function particleGalaxy(o, diam, incl, arms, N, kind) {
+  const b = new Buf(N), n = o.pos.map(v => v / o.d);
+  let e1 = [n[1], -n[0], 0]; let l1 = Math.hypot(...e1) || 1; e1 = e1.map(v => v / l1);
+  const e2 = [n[1] * e1[2] - n[2] * e1[1], n[2] * e1[0] - n[0] * e1[2], n[0] * e1[1] - n[1] * e1[0]];
+  const ci = Math.cos(incl * D2R), si = Math.sin(incl * D2R);
+  const nrm = [n[0] * ci + e2[0] * si, n[1] * ci + e2[1] * si, n[2] * ci + e2[2] * si];
+  const ax = e1, ay = [nrm[1] * ax[2] - nrm[2] * ax[1], nrm[2] * ax[0] - nrm[0] * ax[2], nrm[0] * ax[1] - nrm[1] * ax[0]];
+  const Rs = diam / 2;
+  for (let i = 0; i < N; i++) {
+    let x, y, zz, c;
+    const u = rnd();
+    if (kind === 'ell' || u < .22) { const s = kind === 'ell' ? Rs * .35 : Rs * .1; x = gauss() * s; y = gauss() * s; zz = gauss() * s * (kind === 'ell' ? .8 : .6); c = [1, .85, .62]; }
+    else if (kind === 'irr') { x = gauss() * Rs * .35; y = gauss() * Rs * .22; zz = gauss() * Rs * .15; c = rnd() < .2 ? [1, .5, .7] : [.75, .82, 1]; }
+    else if (u < .75 && arms) { const k = (rnd() * arms) | 0, R = Rs * (.12 + Math.pow(rnd(), .8) * .9), th = Math.log(R / (Rs * .12)) / .25 + k * 2 * Math.PI / arms;
+      x = R * Math.cos(th) + gauss() * Rs * .035; y = R * Math.sin(th) + gauss() * Rs * .035; zz = gauss() * Rs * .015; c = rnd() < .1 ? [1, .5, .7] : [.7, .8, 1]; }
+    else { const R = -Math.log(1 - rnd()) * Rs * .32, th = rnd() * 2 * Math.PI; x = R * Math.cos(th); y = R * Math.sin(th); zz = gauss() * Rs * .02; c = [1, .92, .8]; }
+    b.add(ax[0] * x + ay[0] * y + nrm[0] * zz, ax[1] * x + ay[1] * y + nrm[1] * zz, ax[2] * x + ay[2] * y + nrm[2] * zz, c, 1, diam / 160, .45);
+  }
+  addLayer(makePoints(b.done()), o.pos, 1, [diam * .05, diam * .5, diam * 400, diam * 4000]);
+}
+particleGalaxy(BYNAME['Andromeda Galaxy (M31)'], 220000, 77, 2, 16000, 'spiral');
+particleGalaxy(BYNAME['Triangulum Galaxy (M33)'], 61000, 55, 2, 6000, 'spiral');
+particleGalaxy(BYNAME['Large Magellanic Cloud'], 14000, 35, 1, 3500, 'irr');
+particleGalaxy(BYNAME['Small Magellanic Cloud'], 7000, 60, 0, 1800, 'irr');
+particleGalaxy(BYNAME["Bode's Galaxy (M81)"], 90000, 60, 2, 3500, 'spiral');
+particleGalaxy(BYNAME['Pinwheel Galaxy (M101)'], 170000, 20, 4, 3500, 'spiral');
+particleGalaxy(BYNAME['Whirlpool Galaxy (M51)'], 76000, 25, 2, 3000, 'spiral');
+particleGalaxy(BYNAME['Centaurus A'], 97000, 0, 0, 2500, 'ell');
+
+// --- local cosmic web (illustrative), anchored on real clusters, ~1.6 Gly ---
+function buildWeb(nodes, N, width, nodeSpread, ws, colorFn, excl) {
+  const b = new Buf(N), edges = [];
+  for (let i = 0; i < nodes.length; i++) {
+    const d = nodes.map((m, j) => [j, j === i ? Infinity : (m.p[0] - nodes[i].p[0]) ** 2 + (m.p[1] - nodes[i].p[1]) ** 2 + (m.p[2] - nodes[i].p[2]) ** 2]).sort((a, b) => a[1] - b[1]);
+    for (let k = 0; k < 3; k++) if (d[k][0] > i || k < 2) edges.push([i, d[k][0], Math.sqrt(d[k][1])]);
+  }
+  const totalLen = edges.reduce((s, e) => s + e[2], 0);
+  const nodePts = Math.floor(N * .35), filPts = N - nodePts;
+  const wsum = nodes.reduce((s, n) => s + n.w, 0);
+  const push = (x, y, z) => { if (excl && excl(x, y, z)) return; b.add(x, y, z, colorFn(x, y, z), 1.1, ws, .55 + rnd() * .4); };
+  for (const n of nodes) { const k = Math.round(nodePts * n.w / wsum); for (let i = 0; i < k; i++) { const s = nodeSpread * n.w ** .33; push(n.p[0] + gauss() * s, n.p[1] + gauss() * s, n.p[2] + gauss() * s); } }
+  for (const e of edges) { const A = nodes[e[0]].p, B = nodes[e[1]].p, k = Math.round(filPts * e[2] / totalLen);
+    for (let i = 0; i < k; i++) { const t = rnd(); push(A[0] + (B[0] - A[0]) * t + gauss() * width, A[1] + (B[1] - A[1]) * t + gauss() * width, A[2] + (B[2] - A[2]) * t + gauss() * width); } }
+  return b.done();
+}
+const randInBall = (R, rmin) => { for (;;) { const v = [rnd() * 2 - 1, rnd() * 2 - 1, rnd() * 2 - 1], r = Math.hypot(...v); if (r <= 1 && r * R >= rmin) return v.map(x => x * R); } };
+{
+  const nodes = CAT.filter(o => o.type === 'cl' && o.d < 1.6e9).map(o => ({ p: o.pos, w: 6 }));
+  ['Shapley Supercluster', 'Hercules Supercluster', 'Pisces–Perseus Supercluster', 'CfA2 Great Wall', 'Great Attractor'].forEach(n => nodes.push({ p: BYNAME[n].pos, w: 8 }));
+  nodes.push({ p: [0, 0, 0], w: 1 });
+  for (let i = 0; i < 260; i++) nodes.push({ p: randInBall(1.6e9, 4e7), w: .5 + rnd() * 2.5 });
+  const voids = [[BYNAME['Local Void'].pos, 5.5e7], [BYNAME['Boötes Void'].pos, 1.5e8]];
+  const excl = (x, y, z) => Math.hypot(x, y, z) < 6e6 || voids.some(([p, r]) => Math.hypot(x - p[0], y - p[1], z - p[2]) < r);
+  const col = () => { const t = rnd(); return t < .55 ? [1, .92, .8] : t < .85 ? [.75, .82, 1] : [1, .75, .55]; };
+  addLayer(makePoints(buildWeb(nodes, 75000, 5e6, 7e6, 2.5e5, col, excl)), [0, 0, 0], 1, [4e6, 2.5e7, 2.5e9, 1.5e10]);
+}
+// --- observable-universe web (illustrative), radius 46 Gly, stored in Mly ---
+const OBS_R = chiOfZ(1e6);
+{
+  const nodes = []; for (let i = 0; i < 3500; i++) nodes.push({ p: randInBall(OBS_R / 1e6 * .985, 1200), w: .5 + rnd() * 2 });
+  const col = (x, y, z) => mixc([.8, .85, 1], [1, .62, .4], Math.min(1, Math.hypot(x, y, z) / (OBS_R / 1e6)));
+  addLayer(makePoints(buildWeb(nodes, 90000, 60, 90, 45, col, null)), [0, 0, 0], 1e6, [4e8, 4e9, 1e12, 1e13]);
+}
+// --- CMB shell ---
+{
+  const N = 30000, b = new Buf(N), waves = [];
+  for (let i = 0; i < 40; i++) { const v = [gauss(), gauss(), gauss()], n = Math.hypot(...v), k = 2 + rnd() * 14; waves.push([v[0] / n * k, v[1] / n * k, v[2] / n * k, rnd() * 6.28]); }
+  const R = OBS_R / 1e6;
+  for (let i = 0; i < N; i++) {
+    const y = 1 - 2 * (i + .5) / N, r = Math.sqrt(1 - y * y), th = i * 2.399963229728653, p = [Math.cos(th) * r, y, Math.sin(th) * r];
+    let s = 0; for (const w of waves) s += Math.sin(w[0] * p[0] + w[1] * p[1] + w[2] * p[2] + w[3]); s /= Math.sqrt(waves.length / 2);
+    const t = Math.max(0, Math.min(1, s * .35 + .5));
+    b.add(p[0] * R, p[1] * R, p[2] * R, mixc([.25, .45, 1], [1, .55, .2], t), 1.2, 300, .5);
+  }
+  addLayer(makePoints(b.done()), [0, 0, 0], 1e6, [3e9, 2e10, 1e14, 1e15]);
+}
+// --- catalogue points (positions rewritten every frame) ---
+const catBuf = new Buf(CAT.length);
+for (const o of CAT) catBuf.add(0, 0, 0, o.col || [1, 1, 1], o.ps, o.size * .5, 0);
+const catData = catBuf.done();
+const catPts = makePoints(catData);
+const catPos = catPts.geometry.attributes.position, catAl = catPts.geometry.attributes.aalpha, catPs = catPts.geometry.attributes.psize;
+catPts.geometry.attributes.wsize.setUsage(THREE.DynamicDrawUsage);
+
+// --- lines: distance rings, horizons, trip line ---
+const circleGeo = (() => { const n = 256, a = new Float32Array(n * 3); for (let i = 0; i < n; i++) { a[i * 3] = Math.cos(i / n * 2 * Math.PI); a[i * 3 + 1] = Math.sin(i / n * 2 * Math.PI); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(a, 3)); return g; })();
+const rings = [];
+for (let e = 0; e <= 11; e++) {
+  const m = new THREE.LineBasicMaterial({ color: 0x6f7fb0, transparent: true, opacity: 0, depthTest: false, blending: THREE.AdditiveBlending });
+  const l = new THREE.LineLoop(circleGeo, m); l.frustumCulled = false; scene.add(l); rings.push({ r: Math.pow(10, e), obj: l });
+}
+function sphereWire(radius, color, center) {
+  const g = new THREE.Group();
+  for (let k = 0; k < 3; k++) { const l = new THREE.LineLoop(circleGeo, new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0, depthTest: false, blending: THREE.AdditiveBlending }));
+    if (k === 1) l.rotation.x = Math.PI / 2; if (k === 2) l.rotation.y = Math.PI / 2; l.frustumCulled = false; g.add(l); }
+  scene.add(g); return { g, radius, center };
+}
+const HORIZONS = [
+  { name: 'Hubble sphere: space beyond recedes faster than light', ...sphereWire(HUBBLE_LEN, 0x5ed1ff, [0, 0, 0]), fade: [2e9, 8e9, 1e13, 1e14] },
+  { name: 'Cosmic event horizon: unreachable beyond, even at light speed', ...sphereWire(EVENT_HORIZON, 0xff8a5a, [0, 0, 0]), fade: [2e9, 8e9, 1e13, 1e14] },
+  { name: 'Laniakea (approximate extent)', ...sphereWire(2.6e8, 0x7fb6ff, BYNAME['Great Attractor'].pos), fade: [4e7, 1.5e8, 1.5e9, 6e9] },
+];
+const tripGeo = new THREE.BufferGeometry(); tripGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+const tripLine = new THREE.Line(tripGeo, new THREE.LineDashedMaterial({ color: 0xffb454, dashSize: .03, gapSize: .02, transparent: true, opacity: .85, depthTest: false }));
+tripLine.frustumCulled = false; scene.add(tripLine);
+
+/* =====================================================================
+   Camera state & navigation
+   ===================================================================== */
+const view = { focus: [0, 0, 0], logR: Math.log(12), targetLogR: Math.log(12), yaw: -2.3, pitch: .45 };
+let flight = null;
+const R = () => Math.exp(view.logR);
+function clampLogR(v) { return Math.max(Math.log(0.05), Math.min(Math.log(3e11), v)); }
+
+// van Wijk & Nuij smooth zoom-and-pan path (w = view radius)
+function startFlight(toFocus, toR) {
+  const f0 = view.focus.slice(), w0 = R(), w1 = toR, dv = [toFocus[0] - f0[0], toFocus[1] - f0[1], toFocus[2] - f0[2]], u1 = Math.hypot(...dv);
+  const rho = 1.35;
+  let S, path;
+  if (u1 < 1e-9 * Math.max(w0, w1)) { S = Math.abs(Math.log(w1 / w0)) / rho; path = s => [0, w0 * Math.exp(Math.sign(w1 - w0) * rho * s)]; }
+  else {
+    const b0 = (w1 * w1 - w0 * w0 + rho ** 4 * u1 * u1) / (2 * w0 * rho * rho * u1), b1 = (w1 * w1 - w0 * w0 - rho ** 4 * u1 * u1) / (2 * w1 * rho * rho * u1);
+    const r0 = -Math.asinh(b0), r1 = -Math.asinh(b1); S = (r1 - r0) / rho;
+    path = s => [w0 / (rho * rho) * Math.sinh(rho * s) / Math.cosh(rho * s + r0), w0 * Math.cosh(r0) / Math.cosh(rho * s + r0)];
+  }
+  const dir = u1 > 0 ? dv.map(v => v / u1) : [0, 0, 0];
+  flight = { f0, dir, u1, S, path, w1, toFocus, t0: performance.now(), dur: Math.max(700, Math.min(6000, S * 520)) };
+  view.targetLogR = clampLogR(Math.log(toR));
+}
+function stepFlight(now) {
+  if (!flight) return;
+  let x = (now - flight.t0) / flight.dur; if (x >= 1) x = 1;
+  const e = x < .5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+  const [u, w] = flight.path(e * flight.S);
+  view.focus = x >= 1 ? flight.toFocus.slice() : [flight.f0[0] + flight.dir[0] * u, flight.f0[1] + flight.dir[1] * u, flight.f0[2] + flight.dir[2] * u];
+  view.logR = clampLogR(Math.log(x >= 1 ? flight.w1 : w)); view.targetLogR = view.logR;
+  if (x >= 1) flight = null;
+}
+function flyToObject(o) { startFlight(o.pos.slice(), o.td.fly); }
+
+const PRESETS = [
+  { n: 'Nearest stars', f: () => [0, 0, 0], r: 12 },
+  { n: 'Solar neighbourhood', f: () => [0, 0, 0], r: 400 },
+  { n: 'Milky Way', f: () => GC.slice(), r: 75000 },
+  { n: 'Local Group', f: () => BYNAME['Andromeda Galaxy (M31)'].pos.map((v, i) => (v + GC[i]) / 2), r: 3.2e6 },
+  { n: 'Virgo Supercluster', f: () => [0, 0, 0], r: 6e7 },
+  { n: 'Laniakea', f: () => [0, 0, 0], r: 4.5e8 },
+  { n: 'Cosmic web', f: () => [0, 0, 0], r: 5e9 },
+  { n: 'Observable universe', f: () => [0, 0, 0], r: 7e10 },
+];
+const ladder = document.getElementById('ladder');
+PRESETS.forEach((p, i) => { const b = document.createElement('button'); b.textContent = p.n; b.onclick = () => startFlight(p.f(), p.r); ladder.appendChild(b); p.btn = b; });
+document.getElementById('homeBtn').onclick = () => startFlight([0, 0, 0], 12);
+
+// pointer interaction
+const pointers = new Map(); let dragMoved = 0, lastPinch = 0, lastTap = 0;
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+canvas.addEventListener('pointerdown', e => { canvas.setPointerCapture(e.pointerId); pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, b: e.button, sh: e.shiftKey }); dragMoved = 0;
+  if (pointers.size === 2) { const [a, b] = [...pointers.values()]; lastPinch = Math.hypot(a.x - b.x, a.y - b.y); } });
+canvas.addEventListener('pointermove', e => {
+  const p = pointers.get(e.pointerId); if (!p) return;
+  const dx = e.clientX - p.x, dy = e.clientY - p.y; dragMoved += Math.abs(dx) + Math.abs(dy);
+  if (pointers.size === 2) { p.x = e.clientX; p.y = e.clientY; const [a, b] = [...pointers.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y);
+    if (lastPinch > 0) { view.targetLogR = clampLogR(view.targetLogR - Math.log(d / lastPinch)); flight = null; } lastPinch = d; return; }
+  p.x = e.clientX; p.y = e.clientY;
+  if (p.b === 2 || p.sh || e.shiftKey) {
+    flight = null;
+    const k = 2 * R() / canvas.clientHeight, m = camera.matrixWorld.elements;
+    for (let i = 0; i < 3; i++) view.focus[i] += (-dx * m[i] + dy * m[4 + i]) * k;
+  } else { view.yaw -= dx * .005; view.pitch = Math.max(-1.55, Math.min(1.55, view.pitch + dy * .005)); }
+});
+const endPtr = e => { const p = pointers.get(e.pointerId); pointers.delete(e.pointerId); if (pointers.size < 2) lastPinch = 0;
+  if (p && dragMoved < 6 && e.type === 'pointerup') { const now = performance.now(); const o = pickAt(e.clientX, e.clientY);
+    if (o) { if (now - lastTap < 350 && lastPicked === o) flyToObject(o); else selectDest(o); lastPicked = o; } lastTap = now; } };
+let lastPicked = null;
+canvas.addEventListener('pointerup', endPtr); canvas.addEventListener('pointercancel', endPtr);
+canvas.addEventListener('wheel', e => { e.preventDefault(); flight = null; const k = e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 400 : 1;
+  view.targetLogR = clampLogR(view.targetLogR + e.deltaY * k * .0014); }, { passive: false });
+window.addEventListener('keydown', e => { if (e.target.tagName === 'INPUT') return;
+  if (e.key === '+' || e.key === '=') view.targetLogR = clampLogR(view.targetLogR - .4);
+  if (e.key === '-' || e.key === '_') view.targetLogR = clampLogR(view.targetLogR + .4); });
+
+/* =====================================================================
+   Labels
+   ===================================================================== */
+const labelsEl = document.getElementById('labels'), marker = document.getElementById('destMarker');
+const screen = new Map(); // obj -> [x,y,alpha]
+function mkLabel(text, cls, obj) { const d = document.createElement('div'); d.className = 'lbl ' + cls; d.textContent = text; d.style.display = 'none';
+  if (obj) { d.addEventListener('click', ev => { ev.stopPropagation(); selectDest(obj); }); d.addEventListener('dblclick', ev => { ev.stopPropagation(); flyToObject(obj); }); }
+  labelsEl.appendChild(d); return { el: d, w: 0, shown: false }; }
+for (const o of CAT) o.L = mkLabel(o.name, 't-' + o.type, o);
+for (const a of ARM_LABELS) { a.L = mkLabel(a.name, 't-arm'); a.lb = [6000, 1.6e5]; a.prio = 22; }
+for (const r of rings) r.L = mkLabel(fmtDist(r.r, true), 't-ring');
+for (const h of HORIZONS) h.L = mkLabel(h.name, 't-hor');
+function rangeVis(Rv, lo, hi, kIn = .3, kOut = .35) {
+  if (Rv > hi) return Math.max(0, 1 - Math.log10(Rv / hi) / kOut);
+  if (Rv < lo) return Math.max(0, 1 - Math.log10(lo / Rv) / kIn);
+  return 1;
+}
+function fade4(Rv, f) { const l = Math.log10(Rv), a = Math.log10(Math.max(f[0], 1e-9)), b = Math.log10(Math.max(f[1], 1e-9)), c = Math.log10(f[2]), d = Math.log10(f[3]);
+  if (f[1] <= 0) { if (l <= c) return 1; return Math.max(0, 1 - (l - c) / (d - c)); }
+  if (l < a) return 0; if (l < b) return (l - a) / (b - a); if (l <= c) return 1; if (l < d) return 1 - (l - c) / (d - c); return 0; }
+
+const v3 = new THREE.Vector3();
+function project(rel) { v3.set(rel[0], rel[1], rel[2]).project(camera); if (v3.z > 1 || v3.z < -1) return null;
+  return [(v3.x + 1) / 2 * canvas.clientWidth, (1 - v3.y) / 2 * canvas.clientHeight]; }
+
+function pickAt(x, y) {
+  let best = null, bd = 16;
+  for (const [o, s] of screen) { if (s[2] < .15) continue; const d = Math.hypot(s[0] - x, s[1] - y); if (d < bd) { bd = d; best = o; } }
+  return best;
+}
+
+/* =====================================================================
+   Render loop
+   ===================================================================== */
+let dest = null, lastScaleUI = 0;
+function resize() {
+  const w = window.innerWidth, h = window.innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+  const proj = renderer.getDrawingBufferSize(new THREE.Vector2()).y / (2 * Math.tan(FOV / 2 * D2R)), dpr = renderer.getPixelRatio();
+  for (const m of allMats) { m.uniforms.uProj.value = proj; m.uniforms.uDpr.value = dpr; m.uniforms.uMaxPx.value = 160 * dpr; }
+}
+window.addEventListener('resize', resize); resize();
+
+function frame(now) {
+  requestAnimationFrame(frame);
+  stepFlight(now);
+  if (!flight) view.logR += (view.targetLogR - view.logR) * .18;
+  const Rv = R(), F = view.focus;
+  const cp = Math.cos(view.pitch);
+  camera.position.set(CAM_DIST * cp * Math.cos(view.yaw), CAM_DIST * cp * Math.sin(view.yaw), CAM_DIST * Math.sin(view.pitch));
+  camera.lookAt(0, 0, 0); camera.updateMatrixWorld();
+
+  for (const L of layers) {
+    const op = fade4(Rv, L.fade); L.obj.visible = op > .004;
+    if (!L.obj.visible) continue;
+    L.obj.position.set((L.anchor[0] - F[0]) / Rv, (L.anchor[1] - F[1]) / Rv, (L.anchor[2] - F[2]) / Rv);
+    const sc = L.unit / Rv; L.obj.scale.setScalar(sc);
+    L.obj.material.uniforms.uScale.value = sc; L.obj.material.uniforms.uOpacity.value = op;
+  }
+  // catalogue
+  screen.clear();
+  const cands = [];
+  for (let i = 0; i < CAT.length; i++) {
+    const o = CAT[i], rel = [(o.pos[0] - F[0]) / Rv, (o.pos[1] - F[1]) / Rv, (o.pos[2] - F[2]) / Rv];
+    catPos.setXYZ(i, rel[0], rel[1], rel[2]);
+    const pv = o.ps > 0 ? rangeVis(Rv, 0, o.pt, .3, .5) : 0;
+    catAl.setX(i, pv * (o === dest ? 1 : .95));
+    catPs.setX(i, o === dest ? o.ps + 2 : o.ps);
+    const lv = o === dest ? 1 : rangeVis(Rv, o.lb[0], o.lb[1]);
+    const vis = Math.max(pv, lv);
+    if (vis > .02) { const s = project(rel); if (s) { screen.set(o, [s[0], s[1], vis]); if (lv > .05) cands.push({ L: o.L, s, a: lv, p: o === dest ? 1000 : o.prio + lv * 5, dest: o === dest, force: o.type === 'mwgal' }); } }
+  }
+  catPos.needsUpdate = true; catAl.needsUpdate = true; catPs.needsUpdate = true;
+  catPts.material.uniforms.uScale.value = 1 / Rv;
+  for (const a of ARM_LABELS) { const lv = rangeVis(Rv, a.lb[0], a.lb[1]); if (lv > .05) { const s = project([(a.pos[0] - F[0]) / Rv, (a.pos[1] - F[1]) / Rv, (a.pos[2] - F[2]) / Rv]); if (s) cands.push({ L: a.L, s, a: lv * .9, p: a.prio }); } }
+  // rings
+  for (const r of rings) {
+    const q = Math.log10(r.r / Rv), op = Math.max(0, 1 - Math.abs(q + .15) / .75) * .45;
+    r.obj.visible = op > .01;
+    if (r.obj.visible) { r.obj.position.set(-F[0] / Rv, -F[1] / Rv, -F[2] / Rv); r.obj.scale.setScalar(r.r / Rv); r.obj.material.opacity = op;
+      const ang = 0.35, s = project([(r.r * Math.cos(ang) - F[0]) / Rv, (r.r * Math.sin(ang) - F[1]) / Rv, -F[2] / Rv]); if (s) cands.push({ L: r.L, s, a: op * 2, p: 10 }); }
+  }
+  for (const h of HORIZONS) {
+    const op = fade4(Rv, h.fade) * .5; h.g.visible = op > .01;
+    if (h.g.visible) { h.g.position.set((h.center[0] - F[0]) / Rv, (h.center[1] - F[1]) / Rv, (h.center[2] - F[2]) / Rv); h.g.scale.setScalar(h.radius / Rv);
+      h.g.children.forEach(c => c.material.opacity = op * .6);
+      const s = project([(h.center[0] + h.radius * .7071 - F[0]) / Rv, (h.center[1] - F[1]) / Rv, (h.center[2] + h.radius * .7071 - F[2]) / Rv]); if (s) cands.push({ L: h.L, s, a: op * 2, p: 50 }); }
+  }
+  // trip line
+  if (dest && dest.type !== 'sun') {
+    const a = tripGeo.attributes.position; a.setXYZ(0, -F[0] / Rv, -F[1] / Rv, -F[2] / Rv);
+    a.setXYZ(1, (dest.pos[0] - F[0]) / Rv, (dest.pos[1] - F[1]) / Rv, (dest.pos[2] - F[2]) / Rv); a.needsUpdate = true;
+    tripLine.computeLineDistances(); tripLine.visible = true;
+    const sd = screen.get(dest);
+    if (sd) { marker.style.display = 'block'; marker.style.transform = `translate(${sd[0]}px,${sd[1]}px)`; } else marker.style.display = 'none';
+  } else { tripLine.visible = false; marker.style.display = 'none'; }
+  placeLabels(cands);
+  renderer.render(scene, camera);
+  if (now - lastScaleUI > 120) { lastScaleUI = now; updateScaleUI(Rv); }
+}
+function placeLabels(cands) {
+  cands.sort((a, b) => b.p - a.p);
+  const placed = [], W = canvas.clientWidth, H = canvas.clientHeight, used = new Set();
+  let n = 0;
+  for (const c of cands) {
+    if (n > 70) break;
+    const L = c.L; if (!L.w) { L.el.style.display = 'block'; L.w = L.el.offsetWidth || 60; }
+    const x = c.s[0] + 7, y = c.s[1] - 8, w = L.w, h = 15;
+    if (x > W || y > H || x + w < 0 || y + h < 0) continue;
+    if (!c.dest && !c.force && placed.some(r => x < r[0] + r[2] && x + w > r[0] && y < r[1] + r[3] && y + h > r[1])) continue;
+    placed.push([x, y, w, h]); used.add(L); n++;
+    L.el.style.display = 'block'; L.el.style.opacity = Math.min(1, c.a).toFixed(2); L.el.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`;
+    L.el.classList.toggle('dest', !!c.dest);
+  }
+  for (const L of allLabels) if (!used.has(L) && L.el.style.display !== 'none') L.el.style.display = 'none';
+}
+const allLabels = [...CAT.map(o => o.L), ...ARM_LABELS.map(a => a.L), ...rings.map(r => r.L), ...HORIZONS.map(h => h.L)];
+
+function niceLen(x) { const p = Math.pow(10, Math.floor(Math.log10(x))), m = x / p; return (m >= 5 ? 5 : m >= 2 ? 2 : 1) * p; }
+function updateScaleUI(Rv) {
+  const H = canvas.clientHeight, lyPerPx = 2 * Rv / H, target = niceLen(lyPerPx * 120), px = target / lyPerPx;
+  document.getElementById('scaleTxt').textContent = 'View height ≈ ' + fmtDist(2 * Rv);
+  document.getElementById('scalebar').style.width = px.toFixed(0) + 'px';
+  document.getElementById('scaleBarTxt').textContent = fmtDist(target);
+  let bi = 0, bd = 1e9; PRESETS.forEach((p, i) => { const d = Math.abs(Math.log(p.r / Rv)); if (d < bd) { bd = d; bi = i; } });
+  PRESETS.forEach((p, i) => p.btn.classList.toggle('on', i === bi && bd < 1.4));
+}
+
+/* =====================================================================
+   Formatting
+   ===================================================================== */
+function sig(x, n = 3) { if (!isFinite(x)) return '∞'; if (x === 0) return '0'; const a = Math.abs(x);
+  if (a >= 1e7) return sci(x, n);
+  if (a >= 1e4) return Math.round(x).toLocaleString('en-GB');
+  return Number(x.toPrecision(n)).toLocaleString('en-GB', { maximumSignificantDigits: n }); }
+function sci(x, n = 2) { if (!isFinite(x)) return '∞'; const e = Math.floor(Math.log10(Math.abs(x))), m = x / Math.pow(10, e);
+  return `${m.toFixed(n - 1)} × 10${String(e).replace(/-/g, '⁻').replace(/\d/g, d => '⁰¹²³⁴⁵⁶⁷⁸⁹'[d])}`; }
+function fmtDist(ly, short) {
+  if (ly < 0.01) { const au = ly * 63241; return sig(au) + ' AU'; }
+  if (ly < 1e6) return sig(ly, 3) + ' ly';
+  if (ly < 1e9) return sig(ly / 1e6, 3) + (short ? ' Mly' : ' million ly');
+  return sig(ly / 1e9, 3) + (short ? ' Gly' : ' billion ly');
+}
+function fmtTime(y) {
+  if (!isFinite(y)) return 'never';
+  if (y < 1 / 365.25 / 24) return sig(y * 525960, 3) + ' min';
+  if (y < 2 / 365.25) return sig(y * 8766, 3) + ' hours';
+  if (y < 0.25) return sig(y * 365.25, 3) + ' days';
+  if (y < 1000) return sig(y, 3) + ' years';
+  if (y < 1e6) return sig(Math.round(y / 10) * 10, 4) + ' years';
+  if (y < 1e9) return sig(y / 1e6, 3) + ' million years';
+  if (y < 1e12) return sig(y / 1e9, 3) + ' billion years';
+  if (y < 1e15) return sig(y / 1e12, 3) + ' trillion years';
+  return sci(y) + ' years';
+}
+function fmtSpeed(phi) {
+  const beta = Math.tanh(phi);
+  if (beta < 0.01) return `${sig(beta * C_MS / 1000, 3)} km/s <span class="hint">(${sig(beta * 100, 2)}% of c)</span>`;
+  const omb = 2 / (Math.exp(2 * phi) + 1);
+  if (omb > 1e-3) return `${(beta).toFixed(beta > .99 ? 4 : 3)} c`;
+  const nines = Math.floor(-Math.log10(omb));
+  return `0.${'9'.repeat(Math.min(nines, 12))}… c <span class="hint">(1 − ${sci(omb)})</span>`;
+}
+function fmtMass(kg) { const t = kg / 1000; if (t < 1) return sig(kg, 3) + ' kg'; if (t < 1e6) return sig(t, 3) + ' t'; if (t < 1e9) return sig(t / 1e6, 3) + ' million t'; return sig(t / 1e9, 3) + ' billion t'; }
+function fmtG(g) { if (g >= 0.1) return sig(g, 3) + ' g'; if (g >= 1e-4) return sig(g * 1000, 3) + ' milli-g'; return sig(g * 1e6, 3) + ' micro-g'; }
+function fmtPower(W) { const u = [[1e24, 'YW'], [1e21, 'ZW'], [1e18, 'EW'], [1e15, 'PW'], [1e12, 'TW'], [1e9, 'GW'], [1e6, 'MW'], [1e3, 'kW'], [1, 'W']];
+  for (const [v, n] of u) if (W >= v) return sig(W / v, 3) + ' ' + n; return sig(W, 3) + ' W'; }
+function fmtW(w) { return w < 0.003 ? sig(w * C_MS / 1000, 3) + ' km/s' : sig(w, 3) + ' c' + (w < 0.999 ? ` <span class="hint">(${sig(w * C_MS / 1000, 3)} km/s)</span>` : ' (photon rocket)'); }
+
+/* =====================================================================
+   Journey planner UI
+   ===================================================================== */
+const state = { drive: 'fusion', mode: 'stop', per: {} };
+for (const k in DRIVES) { const d = DRIVES[k]; state.per[k] = { w: d.w ? d.w[2] : 0, sp: d.sp ? d.sp[2] : 0, payT: d.pay, fuelT: d.fuel || 0, aG: d.a }; }
+const $ = id => document.getElementById(id);
+const driveSeg = $('driveSeg');
+for (const k in DRIVES) { const b = document.createElement('button'); b.textContent = DRIVES[k].name; b.dataset.k = k; b.onclick = () => { state.drive = k; syncUI(); recompute(); }; driveSeg.appendChild(b); }
+document.querySelectorAll('#modeSeg button').forEach(b => b.onclick = () => { state.mode = b.dataset.mode; syncUI(); recompute(); });
+const LOGS = { pay: [-1, 7], fuel: [-1, 12] };
+const toSl = (v, lo, hi) => Math.round((Math.log10(v) - lo) / (hi - lo) * 1000);
+const fromSl = (s, lo, hi) => Math.pow(10, lo + (hi - lo) * s / 1000);
+function aRange() { const p = state.per[state.drive], d = DRIVES[state.drive];
+  if (d.magic) return [-3, 3];
+  const aMax = p.sp / powerPerThrust(p.w) / G0; return [Math.log10(aMax) - 6, Math.log10(aMax * .995)]; }
+function params() { const p = state.per[state.drive]; return { drive: state.drive, w: p.w, sp: p.sp, payT: p.payT, fuelT: p.fuelT, aG: p.aG }; }
+function syncUI() {
+  const d = DRIVES[state.drive], p = state.per[state.drive];
+  driveSeg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.k === state.drive));
+  document.querySelectorAll('#modeSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === state.mode));
+  $('driveDesc').textContent = d.desc;
+  $('ctlW').style.display = $('ctlFuel').style.display = $('adv').style.display = d.magic ? 'none' : '';
+  if (!d.magic) {
+    const lw = [Math.log10(d.w[0]), Math.log10(d.w[1])];
+    $('sW').value = toSl(p.w, ...lw); $('vW').innerHTML = fmtW(p.w);
+    $('wNote').textContent = state.drive === 'antimatter' ? 'w = 1 c is a perfect photon rocket.' : state.drive === 'fusion' ? 'Daedalus: ~0.03 c. D–He-3 theoretical limit ~0.1 c.' : state.drive === 'ion' ? 'Gridded ion engines: 20–50 km/s; VASIMR-type: up to ~300 km/s.' : 'Kerosene ~3 km/s, hydrogen–oxygen ~4.4 km/s.';
+    const ls = [Math.log10(d.sp[0]), Math.log10(d.sp[1])]; $('sSp').value = toSl(p.sp, ...ls); $('vSp').textContent = fmtPower(p.sp) + '/kg';
+    $('sFuel').value = toSl(p.fuelT, ...LOGS.fuel); $('vFuel').textContent = fmtMass(p.fuelT * 1000); $('fuelLbl').textContent = d.fuelLbl;
+  }
+  $('sPay').value = toSl(p.payT, ...LOGS.pay); $('vPay').textContent = fmtMass(p.payT * 1000);
+  const ar = aRange(); p.aG = Math.min(Math.max(p.aG, Math.pow(10, ar[0])), Math.pow(10, ar[1]));
+  $('sA').value = toSl(p.aG, ...ar); $('vA').textContent = fmtG(p.aG);
+}
+function bindSlider(id, fn) { $(id).addEventListener('input', e => { fn(+e.target.value); syncUI(); recompute(); }); }
+bindSlider('sW', s => { const d = DRIVES[state.drive]; state.per[state.drive].w = fromSl(s, Math.log10(d.w[0]), Math.log10(d.w[1])); });
+bindSlider('sSp', s => { const d = DRIVES[state.drive]; state.per[state.drive].sp = fromSl(s, Math.log10(d.sp[0]), Math.log10(d.sp[1])); });
+bindSlider('sPay', s => { state.per[state.drive].payT = fromSl(s, ...LOGS.pay); });
+bindSlider('sFuel', s => { state.per[state.drive].fuelT = fromSl(s, ...LOGS.fuel); });
+bindSlider('sA', s => { state.per[state.drive].aG = fromSl(s, ...aRange()); });
+
+function selectDest(o) {
+  dest = o; const meta = [];
+  meta.push(TYPE_NAME[o.type] || '');
+  if (o.type !== 'sun') meta.push(fmtDist(o.d) + (o.d > COSMO_MIN ? ' (today)' : ''));
+  let extra = '';
+  if (o.z != null && o.z > 0.003) { const lb = lookback(o.z); extra = ` Redshift z ≈ ${sig(o.z, 3)}. Its light set out ${fmtTime(lb)} ago, when it was ${fmtDist(o.d / (1 + o.z))} from us.`; }
+  else if (o.d > 0) extra = ` The light we see left it ${fmtTime(o.d)} ago.`;
+  $('destName').textContent = o.name; $('destMeta').textContent = meta.join(' · ');
+  $('destInfo').textContent = o.info + extra;
+  recompute();
+}
+$('flyBtn').onclick = () => dest && flyToObject(dest);
+const dl = $('objlist'); for (const o of CAT) { const op = document.createElement('option'); op.value = o.name; dl.appendChild(op); }
+$('search').addEventListener('change', e => { const q = e.target.value.trim().toLowerCase(); const o = CAT.find(c => c.name.toLowerCase() === q) || CAT.find(c => c.name.toLowerCase().includes(q));
+  if (o) { selectDest(o); flyToObject(o); e.target.value = ''; e.target.blur(); } });
+$('panelToggle').onclick = () => { $('panel').classList.toggle('collapsed'); $('panelToggle').textContent = $('panel').classList.contains('collapsed') ? '▴' : '▾'; };
+
+let recomputeQueued = false;
+function recompute() { if (recomputeQueued) return; recomputeQueued = true; requestAnimationFrame(() => { recomputeQueued = false; renderResults(); scheduleChart(); }); }
+
+const PH_COL = { acc: '#ffb454', coast: '#5f6b95', dec: '#5ed1ff' };
+const PH_NAME = { acc: 'Accelerate', coast: 'Coast', dec: 'Decelerate' };
+function renderResults() {
+  const el = $('resSec');
+  $('phSum').textContent = '';
+  if (!dest) { el.innerHTML = ''; return; }
+  if (dest.type === 'sun') { el.innerHTML = '<div class="sec-h">Journey</div><p class="hint">You are already here. Pick a destination on the map.</p>'; return; }
+  const D = dest.d, prm = params(), r = planTrip(prm, D, state.mode, 'high');
+  const cosmo = D > COSMO_MIN;
+  let h = `<div class="sec-h">Journey to ${dest.name}</div>`;
+  if (!r.ok) { el.innerHTML = h + `<div class="note warn">This thrust needs an engine heavier than the whole ship can afford (maximum ≈ ${fmtG(r.ship.aMaxG)} at this technology level).</div>`; return; }
+  const ship = r.ship;
+  if (!r.arrived) {
+    h += `<div class="kpi"><div class="e"><div class="k">Earth time</div><div class="v">never</div></div><div class="p"><div class="k">Ship time</div><div class="v">never</div></div></div>`;
+    if (r.reason === 'horizon') h += `<div class="note warn">${dest.name} lies beyond the cosmic event horizon (${fmtDist(EVENT_HORIZON)} today). Accelerating expansion means even a beam of light sent now will never get there, so no ship can.</div>`;
+    else if (r.reason === 'nostop') h += `<div class="note warn">The ship can reach ${dest.name} but does not have enough propellant to stop there. Try a fly-by, or add propellant.</div>`;
+    else h += `<div class="note warn">The ship never arrives. As space expands, a coasting ship’s speed relative to the galaxies around it fades away, and this one stalls ${r.stallChi ? 'after roughly ' + fmtDist(r.stallChi) + ' (today’s distance)' : 'short of the target'}. More speed is needed.</div>`;
+    el.innerHTML = h + driveSummary(ship); $('phSum').textContent = '· unreachable'; return;
+  }
+  const tE = r.t, tS = r.tau;
+  h += `<div class="kpi"><div class="e"><div class="k">${cosmo ? 'Earth (cosmic) time' : 'Earth time'}</div><div class="v">${fmtTime(tE)}</div></div>
+        <div class="p"><div class="k">Ship (crew) time</div><div class="v">${fmtTime(tS)}</div></div></div>`;
+  h += '<table class="res">';
+  if (tE < 2e5) h += `<tr><td>Arrival, Earth calendar</td><td>year ${Math.round(DEPART_YEAR + tE)}</td></tr>`;
+  h += `<tr><td>Peak speed</td><td>${fmtSpeed(r.phiPeak)}</td></tr>`;
+  const gam = Math.cosh(r.phiPeak);
+  if (gam > 1.0005) h += `<tr><td>Peak time dilation</td><td>γ = ${sig(gam, 4)} <span class="hint">(1 ship-day = ${fmtTime(gam / 365.25)} on Earth)</span></td></tr>`;
+  if (state.mode === 'flyby') h += `<tr><td>Speed passing ${dest.name}</td><td>${fmtSpeed(r.phiArr)}</td></tr>`;
+  const aPeakG = r.aPeak / G_LY;
+  h += `<tr><td>Acceleration</td><td>${fmtG(ship.aG)}${ship.magic ? ' (constant)' : ` rising to ${fmtG(aPeakG)} as propellant burns off`}</td></tr>`;
+  if (!ship.magic) { const used = 1 - Math.exp(-(r.PhiUsed || 0) / ship.w); h += `<tr><td>Propellant used</td><td>${fmtMass(used * ship.m0)} of ${fmtMass(ship.fuel)}</td></tr>`; }
+  const burnTau = r.phases.filter(p => p.n !== 'coast').reduce((s, p) => s + p.tau, 0);
+  h += `<tr><td>Engine firing (ship time)</td><td>${fmtTime(burnTau)}</td></tr>`;
+  // message home
+  const msg = cosmo ? messageArrival(r.tArr, D) - Cos.t0 : tE + D;
+  h += `<tr><td>“We’ve arrived” radio message reaches Earth</td><td>${isFinite(msg) ? fmtTime(msg) + ' after launch' : '<span class="bad">never: expansion carries it away</span>'}</td></tr>`;
+  if (ship.magic) { const KE = (gam - 1) * ship.payload * C_MS * C_MS; h += `<tr><td>Peak kinetic energy</td><td>${sci(KE)} J <span class="hint">(${sig(KE / 6.2e20, 3)} × humanity’s yearly energy use)</span></td></tr>`; }
+  h += '</table>';
+  // phase bars
+  const tot = r.phases.reduce((s, p) => s + p.t, 0), totp = r.phases.reduce((s, p) => s + p.tau, 0);
+  const bar = (key, total) => `<div class="phbar">${r.phases.map(p => `<span style="width:${Math.max(.6, p[key] / total * 100)}%;background:${PH_COL[p.n]}" title="${PH_NAME[p.n]}: ${fmtTime(p[key])}"></span>`).join('')}</div>`;
+  h += `<div style="margin-top:8px" class="hint">Earth-time profile</div>${bar('t', tot)}<div class="hint">Ship-time profile</div>${bar('tau', totp)}`;
+  h += `<div class="legend">${r.phases.map(p => `<span><i style="background:${PH_COL[p.n]}"></i>${PH_NAME[p.n]} ${fmtTime(p.tau)} ship / ${fmtTime(p.t)} Earth</span>`).join('')}</div>`;
+  h += driveSummary(ship);
+  // notes
+  if (aPeakG > 10) h += `<div class="note warn">Peak acceleration of ${fmtG(aPeakG)} would kill a human crew: fine for a robotic probe.</div>`;
+  else if (aPeakG > 3 && !ship.magic) h += `<div class="note warn">Sustained accelerations above ~3 g are dangerous for people over long periods.</div>`;
+  if (gam > 10) h += `<div class="note">At γ = ${sig(gam, 3)}, each hydrogen atom in interstellar space hits the ship like a particle-accelerator beam${gam > 1e4 ? ', and the cosmic microwave background ahead is blueshifted into hard X-rays' : ''}. Serious shielding would be needed.</div>`;
+  if (cosmo) {
+    const flat = tripFlat(ship, D, state.mode);
+    h += `<div class="note">Flown through the expanding universe. In a static universe this trip would take ${fmtTime(flat.t)} Earth time and ${fmtTime(flat.tau)} ship time. On arrival the universe is ${sig(r.tArr / 1e9, 3)} billion years old (it is ${sig(Cos.t0 / 1e9, 3)} billion years old today).</div>`;
+  } else if (D > 4e5) h += `<div class="note">The Local Group is gravitationally bound, so cosmic expansion does not stretch this journey (galaxies' own motions are ignored).</div>`;
+  el.innerHTML = h;
+  $('phSum').textContent = '· ' + fmtTime(tE) + ' / ' + fmtTime(tS);
+}
+function driveSummary(s) {
+  if (s.magic) return `<div class="note">Magic drive: no propellant. Payload ${fmtMass(s.payload)}.</div>`;
+  return `<table class="res" style="margin-top:8px">
+    <tr><td>Starting mass</td><td>${fmtMass(s.m0)} <span class="hint">(payload ${fmtMass(s.payload)}, engine &amp; power plant ${fmtMass(s.me)}, propellant ${fmtMass(s.fuel)})</span></td></tr>
+    <tr><td>Mass ratio</td><td>${sig(s.MR, 3)} <span class="hint">→ total Δ-rapidity ${sig(s.B, 3)} (${fmtSpeed(s.B).replace(/<[^>]+>/g, '')} if spent in one go)</span></td></tr>
+    <tr><td>Jet power</td><td>${fmtPower(s.P)} <span class="hint">(${s.P > 1.8e13 ? sig(s.P / 1.8e13, 3) + ' × humanity’s total power use' : sig(s.P / 1.8e13 * 100, 2) + '% of humanity’s total power use'})</span></td></tr>
+  </table>`;
+}
+
+/* ---------- thrust vs time chart & optimum ---------- */
+const chart = $('chart'); let chartData = null, chartToken = 0, chartTimer = 0;
+function scheduleChart() { clearTimeout(chartTimer); chartTimer = setTimeout(runChart, 120); }
+async function runChart() {
+  const tok = ++chartToken;
+  if (!dest || dest.type === 'sun') { chartData = null; drawChart(); return; }
+  const base = params(), D = dest.d, ar = aRange(), N = D > COSMO_MIN ? 22 : 44, q = D > COSMO_MIN ? 'low' : 'high';
+  const pts = [];
+  $('chartNote').textContent = 'Computing…';
+  for (let i = 0; i < N; i++) {
+    const aG = Math.pow(10, ar[0] + (ar[1] - ar[0]) * i / (N - 1));
+    const r = planTrip({ ...base, aG }, D, state.mode, q);
+    pts.push({ aG, t: r.ok && r.arrived ? r.t : Infinity, tau: r.ok && r.arrived ? r.tau : Infinity });
+    if (i % 4 === 3) { await new Promise(res => setTimeout(res, 0)); if (tok !== chartToken) return; }
+  }
+  // refine the optimum (Earth time) with a golden-section search
+  let bi = 0; pts.forEach((p, i) => { if (p.t < pts[bi].t) bi = i; });
+  let opt = null;
+  if (isFinite(pts[bi].t)) {
+    let lo = Math.log10(pts[Math.max(0, bi - 1)].aG), hi = Math.log10(pts[Math.min(N - 1, bi + 1)].aG);
+    const f = x => { const r = planTrip({ ...base, aG: Math.pow(10, x) }, D, state.mode, q); return r.ok && r.arrived ? r.t : Infinity; };
+    const gr = (Math.sqrt(5) - 1) / 2; let c = hi - gr * (hi - lo), d = lo + gr * (hi - lo), fc = f(c), fd = f(d);
+    for (let i = 0; i < (q === 'low' ? 10 : 22); i++) { if (fc < fd) { hi = d; d = c; fd = fc; c = hi - gr * (hi - lo); fc = f(c); } else { lo = c; c = d; fc = fd; d = lo + gr * (hi - lo); fd = f(d); } }
+    const ax = (lo + hi) / 2, rr = planTrip({ ...base, aG: Math.pow(10, ax) }, D, state.mode, q);
+    if (rr.ok && rr.arrived) opt = { aG: Math.pow(10, ax), t: rr.t, tau: rr.tau };
+  }
+  if (tok !== chartToken) return;
+  chartData = { pts, opt, cur: base.aG, magic: DRIVES[state.drive].magic };
+  drawChart();
+  const n = $('chartNote');
+  if (!opt) n.textContent = 'No thrust setting reaches this destination with the current ship. Add propellant or pick a better drive.';
+  else if (chartData.magic) n.innerHTML = `With unlimited energy, more acceleration is always faster. The limit is what the crew (or the probe) can survive.`;
+  else { const atEdge = opt.aG > Math.pow(10, ar[1]) * .7;
+    n.innerHTML = `Shortest Earth-frame trip with ${fmtMass(base.fuelT * 1000)} of propellant: <b>${fmtTime(opt.t)}</b> (ship time ${fmtTime(opt.tau)}) at a starting acceleration of <b>${fmtG(opt.aG)}</b>. ` +
+      (atEdge ? 'More thrust keeps helping almost up to the engine’s limit.' : 'Below that, the ship takes too long to get up to speed; above it, the heavier engine eats into the mass ratio and lowers the top speed.'); }
+}
+function shortTime(y) { const u = [[1e12, 'T yr'], [1e9, 'B yr'], [1e6, 'M yr'], [1e3, 'k yr'], [1, ' yr']];
+  for (const [v, n] of u) if (y >= v) return sig(y / v, 2) + n; if (y >= 1 / 365.25) return sig(y * 365.25, 2) + ' d'; return sig(y * 8766, 2) + ' h'; }
+function drawChart() {
+  const dpr = window.devicePixelRatio || 1, W = chart.clientWidth, H = chart.clientHeight;
+  chart.width = W * dpr; chart.height = H * dpr; const g = chart.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+  if (!chartData) return;
+  const P = chartData.pts.filter(p => isFinite(p.t));
+  if (!P.length) { g.fillStyle = '#8a97c0'; g.font = '12px system-ui'; g.fillText('Unreachable at every thrust setting', 12, H / 2); return; }
+  const L = 54, Rm = 8, T = 10, Bm = 26;
+  const xs = chartData.pts.map(p => Math.log10(p.aG)), x0 = Math.min(...xs), x1 = Math.max(...xs);
+  const ys = P.flatMap(p => [Math.log10(p.t), Math.log10(p.tau)]); let y0 = Math.min(...ys), y1 = Math.max(...ys);
+  if (y1 - y0 < .5) { const m = (y0 + y1) / 2; y0 = m - .25; y1 = m + .25; }
+  const pad = (y1 - y0) * .08; y0 -= pad; y1 += pad;
+  const X = v => L + (v - x0) / (x1 - x0) * (W - L - Rm), Y = v => T + (1 - (v - y0) / (y1 - y0)) * (H - T - Bm);
+  g.strokeStyle = 'rgba(140,170,255,.12)'; g.fillStyle = '#8a97c0'; g.font = '10px system-ui'; g.lineWidth = 1;
+  const xstep = Math.max(1, Math.ceil((x1 - x0) / 5));
+  for (let e = Math.ceil(x0); e <= Math.floor(x1); e += xstep) { g.beginPath(); g.moveTo(X(e), T); g.lineTo(X(e), H - Bm); g.stroke(); g.textAlign = 'center'; g.fillText(fmtG(Math.pow(10, e)).replace(' ', ''), X(e), H - Bm + 12); }
+  const ystep = Math.max(1, Math.ceil((y1 - y0) / 5));
+  for (let e = Math.ceil(y0); e <= Math.floor(y1); e += ystep) { g.beginPath(); g.moveTo(L, Y(e)); g.lineTo(W - Rm, Y(e)); g.stroke(); g.textAlign = 'right'; g.fillText(shortTime(Math.pow(10, e)), L - 4, Y(e) + 3); }
+  g.textAlign = 'center'; g.fillText('starting acceleration (thrust) →', L + (W - L) / 2, H - 3);
+  const line = (key, col, lw) => { g.strokeStyle = col; g.lineWidth = lw; g.beginPath(); let started = false;
+    for (const p of chartData.pts) { if (!isFinite(p[key])) { started = false; continue; } const x = X(Math.log10(p.aG)), y = Y(Math.log10(p[key])); if (!started) { g.moveTo(x, y); started = true; } else g.lineTo(x, y); } g.stroke(); };
+  line('t', '#ffb454', 3.5); line('tau', '#5ed1ff', 1.6);
+  const cx = X(Math.log10(chartData.cur)); g.strokeStyle = 'rgba(255,255,255,.5)'; g.setLineDash([3, 3]); g.beginPath(); g.moveTo(cx, T); g.lineTo(cx, H - Bm); g.stroke(); g.setLineDash([]);
+  if (chartData.opt && !chartData.magic) { const ox = X(Math.log10(chartData.opt.aG)), oy = Y(Math.log10(chartData.opt.t));
+    g.fillStyle = '#ffb454'; g.beginPath(); g.arc(ox, oy, 4.5, 0, 7); g.fill(); g.fillStyle = '#ffe2b8'; g.textAlign = ox > W - 70 ? 'right' : 'left'; g.fillText('optimum', ox + (ox > W - 70 ? -7 : 7), oy - 6); }
+  g.textAlign = 'left'; g.fillStyle = '#ffb454'; g.fillText('■ Earth time', L + 6, T + 10); g.fillStyle = '#5ed1ff'; g.fillText('■ ship time', L + 80, T + 10);
+}
+chart.addEventListener('click', e => { if (!chartData) return; const rct = chart.getBoundingClientRect(), L = 54, Rm = 8;
+  const xs = chartData.pts.map(p => Math.log10(p.aG)), x0 = Math.min(...xs), x1 = Math.max(...xs);
+  const v = x0 + (e.clientX - rct.left - L) / (rct.width - L - Rm) * (x1 - x0); if (v < x0 || v > x1) return;
+  state.per[state.drive].aG = Math.pow(10, v); syncUI(); recompute(); });
+$('optBtn').onclick = () => { if (chartData && chartData.opt) { state.per[state.drive].aG = chartData.opt.aG; syncUI(); recompute(); } };
+window.addEventListener('resize', () => drawChart());
+
+// ---- start ----
+syncUI();
+if (window.matchMedia('(max-width:760px)').matches) { $('panel').classList.add('collapsed'); $('panelToggle').textContent = '▴'; }
+selectDest(BYNAME['Proxima Centauri']);
+requestAnimationFrame(frame);
+window.__cosmic = { view, startFlight, selectDest, BYNAME, state, syncUI, recompute, R };
+</script>
+</body>
+</html>
