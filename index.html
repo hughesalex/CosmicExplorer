@@ -17,7 +17,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
 #labels{position:fixed;inset:0;pointer-events:none;overflow:hidden}
 .lbl{position:absolute;left:0;top:0;white-space:nowrap;font-size:11.5px;color:#cdd6ff;
   text-shadow:0 0 3px #000,0 0 6px #000,0 0 10px #000;pointer-events:auto;cursor:pointer;
-  padding:0 3px;border-radius:3px;will-change:transform;user-select:none}
+  padding:0 3px;border-radius:3px;will-change:transform;user-select:none;touch-action:none}
 .lbl:hover{color:#fff;background:rgba(94,209,255,.15)}
 .lbl.t-gal,.lbl.t-lg,.lbl.t-sat{color:#d9c8ff}
 .lbl.t-cl{color:#ffd88a}
@@ -913,9 +913,15 @@ document.getElementById('homeBtn').onclick = () => startFlight([0, 0, 0], 12);
 // pointer interaction
 const pointers = new Map(); let dragMoved = 0, lastPinch = 0, lastTap = 0;
 canvas.addEventListener('contextmenu', e => e.preventDefault());
-canvas.addEventListener('pointerdown', e => { canvas.setPointerCapture(e.pointerId); pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, b: e.button, sh: e.shiftKey }); dragMoved = 0;
-  if (pointers.size === 2) { const [a, b] = [...pointers.values()]; lastPinch = Math.hypot(a.x - b.x, a.y - b.y); } });
-canvas.addEventListener('pointermove', e => {
+// Pointer gestures start on the canvas or on a map label (labels sit above the canvas),
+// and are tracked on window so a drag or pinch keeps working wherever the pointer goes.
+const ptrDown = (e, onLabel) => { if (!onLabel) canvas.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, b: e.button, sh: e.shiftKey, onLabel }); dragMoved = 0;
+  if (pointers.size === 2) { const [a, b] = [...pointers.values()]; lastPinch = Math.hypot(a.x - b.x, a.y - b.y); } };
+canvas.addEventListener('pointerdown', e => ptrDown(e, false));
+document.getElementById('labels').addEventListener('pointerdown', e => { if (e.target.classList.contains('lbl')) ptrDown(e, true); });
+document.getElementById('labels').addEventListener('contextmenu', e => e.preventDefault());
+window.addEventListener('pointermove', e => {
   const p = pointers.get(e.pointerId); if (!p) return;
   const dx = e.clientX - p.x, dy = e.clientY - p.y; dragMoved += Math.abs(dx) + Math.abs(dy);
   if (pointers.size === 2) { p.x = e.clientX; p.y = e.clientY; const [a, b] = [...pointers.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y);
@@ -928,11 +934,12 @@ canvas.addEventListener('pointermove', e => {
   } else { view.yaw -= dx * .005; view.pitch = Math.max(-1.55, Math.min(1.55, view.pitch + dy * .005)); }
 });
 const endPtr = e => { const p = pointers.get(e.pointerId); pointers.delete(e.pointerId); if (pointers.size < 2) lastPinch = 0;
-  if (p && dragMoved < 6 && e.type === 'pointerup') { const now = performance.now(); const o = pickAt(e.clientX, e.clientY);
+  if (p && !p.onLabel && dragMoved < 6 && e.type === 'pointerup') { const now = performance.now(); const o = pickAt(e.clientX, e.clientY);
     if (o) { if (now - lastTap < 350 && lastPicked === o) flyToObject(o); else selectDest(o); lastPicked = o; } lastTap = now; } };
 let lastPicked = null;
-canvas.addEventListener('pointerup', endPtr); canvas.addEventListener('pointercancel', endPtr);
-canvas.addEventListener('wheel', e => { e.preventDefault(); flight = null; const k = e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 400 : 1;
+window.addEventListener('pointerup', endPtr); window.addEventListener('pointercancel', endPtr);
+// Wheel zoom works over the canvas and over map labels, but not over the UI panels.
+window.addEventListener('wheel', e => { if (!(e.target === canvas || (e.target.closest && e.target.closest('#labels')))) return; e.preventDefault(); flight = null; const k = e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 400 : 1;
   view.targetLogR = clampLogR(view.targetLogR + e.deltaY * k * .0014); }, { passive: false });
 window.addEventListener('keydown', e => { if (e.target.tagName === 'INPUT') return;
   if (e.key === '+' || e.key === '=') view.targetLogR = clampLogR(view.targetLogR - .4);
@@ -944,7 +951,7 @@ window.addEventListener('keydown', e => { if (e.target.tagName === 'INPUT') retu
 const labelsEl = document.getElementById('labels'), marker = document.getElementById('destMarker');
 const screen = new Map(); // obj -> [x,y,alpha]
 function mkLabel(text, cls, obj) { const d = document.createElement('div'); d.className = 'lbl ' + cls; d.textContent = text; d.style.display = 'none';
-  if (obj) { d.addEventListener('click', ev => { ev.stopPropagation(); selectDest(obj); }); d.addEventListener('dblclick', ev => { ev.stopPropagation(); flyToObject(obj); }); }
+  if (obj) { d.addEventListener('click', ev => { ev.stopPropagation(); if (dragMoved >= 6) return; selectDest(obj); }); d.addEventListener('dblclick', ev => { ev.stopPropagation(); flyToObject(obj); }); }
   labelsEl.appendChild(d); return { el: d, w: 0, shown: false }; }
 for (const o of CAT) o.L = mkLabel(o.name, 't-' + o.type, o);
 for (const a of ARM_LABELS) { a.L = mkLabel(a.name, 't-arm'); a.lb = [6000, 1.6e5]; a.prio = 22; }
