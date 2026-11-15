@@ -2,7 +2,11 @@
 
 A single-page, zero-install 3D map of the universe, from the nearest stars out to the edge of the observable universe, with a relativistic journey planner.
 
-Open `index.html` in a modern browser. It loads Three.js from a CDN, so you need an internet connection the first time.
+**▶ Try it live: [hughesalex.github.io/CosmicExplorer](https://hughesalex.github.io/CosmicExplorer/)**
+
+[![Cosmic Explorer: a 1 g trip to the Galactic Centre takes 26,670 years on Earth but only 19.8 years for the crew](docs/screenshot.png)](https://hughesalex.github.io/CosmicExplorer/)
+
+To run it locally, open `index.html` in a modern browser. It loads Three.js from a CDN, so you need an internet connection the first time.
 
 ## The map
 
