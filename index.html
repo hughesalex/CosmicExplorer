@@ -72,6 +72,9 @@ section:last-child{border-bottom:none}
 .seg{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}
 .seg button{flex:1 1 auto;padding:5px 8px;font-size:12px}
 .seg button.on{background:var(--accent);color:#111;border-color:var(--accent);font-weight:600}
+#driveSel{width:100%;font:inherit;font-size:13px;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 10px;margin:4px 0;outline:none;cursor:pointer}
+#driveSel:focus{border-color:var(--accent2)}
+#driveSel option,#driveSel optgroup{background:#0e1426;color:var(--text)}
 #driveDesc{color:#c3cbea;margin:6px 0 8px;font-size:12.5px}
 .ctl{margin:8px 0}
 .ctl label{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:#c3cbea}
@@ -146,7 +149,7 @@ table.res td:first-child{color:var(--muted);padding-right:10px;width:44%}
     </section>
     <section>
       <div class="sec-h">Propulsion</div>
-      <div class="seg" id="driveSeg"></div>
+      <select id="driveSel" aria-label="Propulsion"></select>
       <p id="driveDesc"></p>
       <div class="ctl" id="ctlW"><label>Exhaust velocity <b id="vW"></b></label><input type="range" id="sW" min="0" max="1000"><div class="sub" id="wNote"></div></div>
       <div class="ctl" id="ctlPay"><label>Payload (crew, habitat, shielding) <b id="vPay"></b></label><input type="range" id="sPay" min="0" max="1000"></div>
@@ -237,19 +240,31 @@ const COSMO_MIN = 1e7; // ly: beyond this, flights are integrated through the ex
    ===================================================================== */
 const KMS = 1000 / C_MS; // 1 km/s in units of c
 const DRIVES = {
-  chemical: { name: 'Chemical', w: [2.5 * KMS, 4.6 * KMS, 4.4 * KMS], sp: [1e4, 1e7, 1e6], a: 1, fuel: 1e5, pay: 100,
-    fuelLbl: 'Propellant (fuel + oxidiser)',
+  chemical: { group: 'Chemical', name: 'Chemical rocket (H₂ / O₂)', w: [2.5 * KMS, 4.6 * KMS, 4.4 * KMS], sp: [1e4, 1e7, 1e6], a: 1, fuel: 1e5, pay: 100,
+    fuelLbl: 'Propellant (fuel + oxidiser)', wNote: 'Kerosene ~3 km/s, hydrogen–oxygen ~4.4 km/s.',
     desc: 'Hydrogen burning in oxygen, as on today’s launch vehicles. Enormous thrust, but the exhaust leaves at only ~4.4 km/s, so the rocket equation is brutal: every extra 4.4 km/s of speed multiplies the starting mass by e ≈ 2.7.' },
-  ion: { name: 'Ion drive', w: [15 * KMS, 300 * KMS, 40 * KMS], sp: [3, 3000, 100], a: 1e-4, fuel: 1000, pay: 50,
-    fuelLbl: 'Propellant (xenon / argon)',
-    desc: 'Electric propulsion as flown on Dawn and BepiColombo: exhaust at 20–50 km/s (more for advanced designs like VASIMR), but thrust is limited by electrical power. The default 100 W/kg assumes an advanced nuclear-electric plant; Dawn managed about 10 W/kg on solar panels.' },
-  fusion: { name: 'Fusion', w: [0.005, 0.12, 0.04], sp: [1e5, 1e9, 1e7], a: 0.02, fuel: 5e4, pay: 500,
-    fuelLbl: 'Propellant (D / He-3 pellets)',
+  ion: { group: 'Electric', name: 'Ion drive (solar or nuclear-electric)', w: [15 * KMS, 300 * KMS, 40 * KMS], sp: [3, 3000, 100], a: 1e-4, fuel: 1000, pay: 50,
+    fuelLbl: 'Propellant (xenon / argon)', wNote: 'Gridded ion engines: 20–50 km/s; VASIMR-type: up to ~300 km/s.',
+    desc: 'Electric propulsion as flown on Dawn and BepiColombo: exhaust at 20–50 km/s (more for advanced designs like VASIMR), but thrust is limited by electrical power. The default 100 W/kg assumes an advanced fission reactor feeding the thrusters (nuclear-electric); Dawn managed about 10 W/kg on solar panels.' },
+  ntr: { group: 'Fission', name: 'Solid-core nuclear thermal (NERVA)', w: [7 * KMS, 10 * KMS, 9 * KMS], sp: [1e4, 1e6, 7e4], a: 0.1, fuel: 1e4, pay: 100,
+    fuelLbl: 'Propellant (liquid hydrogen)', wNote: 'NERVA tested ~8.3 km/s; limited by the melting point of the solid fuel.',
+    desc: 'A fission reactor heats hydrogen and blows it out of a nozzle. Tested on the ground in the 1960s (NERVA) and planned again (DRACO). Twice the exhaust speed of chemical rockets with useful thrust, but the solid reactor core caps the exhaust at about 9 km/s.' },
+  gascore: { group: 'Fission', name: 'Gas-core nuclear thermal', w: [20 * KMS, 70 * KMS, 40 * KMS], sp: [3e4, 3e6, 3e5], a: 0.05, fuel: 1e4, pay: 100,
+    fuelLbl: 'Propellant (hydrogen)', wNote: 'Closed-cycle “nuclear light bulb” ~20 km/s; open-cycle up to ~50–70 km/s.',
+    desc: 'The uranium is a gas or plasma at tens of thousands of degrees, so the hydrogen can be heated far hotter than any solid core allows. Studied but never built: containing the fuel (and not spraying it out of the nozzle) is the hard part.' },
+  ffrag: { group: 'Fission', name: 'Fission-fragment rocket', w: [0.005, 0.05, 0.03], sp: [10, 1e5, 1000], a: 1e-5, fuel: 1000, pay: 50,
+    fuelLbl: 'Propellant (fissile dust / thin fibres)', wNote: 'Fission fragments leave at ~3–5% of light speed; real designs lose some to the nozzle.',
+    desc: 'The fission fragments themselves are the exhaust, streaming out at a few percent of light speed: the highest exhaust speed of any fission concept. But only a thin layer of fuel can be exposed at a time, so the thrust is tiny and the reactor heavy.' },
+  orion: { group: 'Fission', name: 'Nuclear pulse (Project Orion)', w: [20 * KMS, 1000 * KMS, 60 * KMS], sp: [1e6, 1e10, 1e8], a: 1, fuel: 1e5, pay: 1000,
+    fuelLbl: 'Propellant (pulse units: small fission bombs)', wNote: '1950s–60s designs ~20–60 km/s; Dyson’s interstellar Orion assumed up to ~1,000 km/s.',
+    desc: 'Small nuclear bombs detonated behind a massive pusher plate, one every second or so. Huge thrust and good exhaust speed with 1960s technology, which makes it the most capable fission concept, but treaties ban nuclear explosions in space.' },
+  fusion: { group: 'Fusion', name: 'Fusion (Daedalus-type)', w: [0.005, 0.12, 0.04], sp: [1e5, 1e9, 1e7], a: 0.02, fuel: 5e4, pay: 500,
+    fuelLbl: 'Propellant (D / He-3 pellets)', wNote: 'Daedalus: ~0.03 c. D–He-3 theoretical limit ~0.1 c.',
     desc: 'Pulsed inertial-confinement or magnetic fusion, as in the Project Daedalus study. Exhaust at a few percent of light speed (D–He-3 tops out near 0.1 c). The defaults are roughly Daedalus-class: 50,000 t of propellant pushing a 500 t probe.' },
-  antimatter: { name: 'Antimatter', w: [0.1, 1.0, 0.33], sp: [1e7, 1e12, 1e10], a: 1, fuel: 1e4, pay: 100,
-    fuelLbl: 'Propellant (matter + antimatter)',
+  antimatter: { group: 'Antimatter', name: 'Antimatter (pion / photon rocket)', w: [0.1, 1.0, 0.33], sp: [1e7, 1e12, 1e10], a: 1, fuel: 1e4, pay: 100,
+    fuelLbl: 'Propellant (matter + antimatter)', wNote: 'w = 1 c is a perfect photon rocket.',
     desc: 'Matter–antimatter annihilation. A beamed-core pion engine might reach an effective exhaust of 0.3–0.6 c; a perfect photon rocket (w = c) is the theoretical best any rocket can do. Making antimatter in bulk is far beyond us: CERN produces nanograms a year.' },
-  magic: { name: 'Magic', magic: true, a: 1, pay: 100,
+  magic: { group: 'Hypothetical', name: 'Magic (unlimited energy)', magic: true, a: 1, pay: 100,
     desc: 'A reactionless drive with unlimited energy: constant proper acceleration for as long as you like. This is the textbook “relativistic rocket”, and the upper bound on what any acceleration profile can achieve. At 1 g you could cross the Milky Way in a crew lifetime.' },
 };
 
@@ -1138,8 +1153,12 @@ function fmtW(w) { return w < 0.003 ? sig(w * C_MS / 1000, 3) + ' km/s' : sig(w,
 const state = { drive: 'fusion', mode: 'stop', per: {} };
 for (const k in DRIVES) { const d = DRIVES[k]; state.per[k] = { w: d.w ? d.w[2] : 0, sp: d.sp ? d.sp[2] : 0, payT: d.pay, fuelT: d.fuel || 0, aG: d.a }; }
 const $ = id => document.getElementById(id);
-const driveSeg = $('driveSeg');
-for (const k in DRIVES) { const b = document.createElement('button'); b.textContent = DRIVES[k].name; b.dataset.k = k; b.onclick = () => { state.drive = k; syncUI(); recompute(); }; driveSeg.appendChild(b); }
+const driveSel = $('driveSel');
+{ const groups = {};
+  for (const k in DRIVES) { const d = DRIVES[k]; let g = groups[d.group];
+    if (!g) { g = groups[d.group] = document.createElement('optgroup'); g.label = d.group; driveSel.appendChild(g); }
+    const o = document.createElement('option'); o.value = k; o.textContent = d.name; g.appendChild(o); }
+  driveSel.addEventListener('change', () => { state.drive = driveSel.value; syncUI(); recompute(); }); }
 document.querySelectorAll('#modeSeg button').forEach(b => b.onclick = () => { state.mode = b.dataset.mode; syncUI(); recompute(); });
 const LOGS = { pay: [-1, 7], fuel: [-1, 12] };
 const toSl = (v, lo, hi) => Math.round((Math.log10(v) - lo) / (hi - lo) * 1000);
@@ -1150,14 +1169,14 @@ function aRange() { const p = state.per[state.drive], d = DRIVES[state.drive];
 function params() { const p = state.per[state.drive]; return { drive: state.drive, w: p.w, sp: p.sp, payT: p.payT, fuelT: p.fuelT, aG: p.aG }; }
 function syncUI() {
   const d = DRIVES[state.drive], p = state.per[state.drive];
-  driveSeg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.k === state.drive));
+  driveSel.value = state.drive;
   document.querySelectorAll('#modeSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === state.mode));
   $('driveDesc').textContent = d.desc;
   $('ctlW').style.display = $('ctlFuel').style.display = $('adv').style.display = d.magic ? 'none' : '';
   if (!d.magic) {
     const lw = [Math.log10(d.w[0]), Math.log10(d.w[1])];
     $('sW').value = toSl(p.w, ...lw); $('vW').innerHTML = fmtW(p.w);
-    $('wNote').textContent = state.drive === 'antimatter' ? 'w = 1 c is a perfect photon rocket.' : state.drive === 'fusion' ? 'Daedalus: ~0.03 c. D–He-3 theoretical limit ~0.1 c.' : state.drive === 'ion' ? 'Gridded ion engines: 20–50 km/s; VASIMR-type: up to ~300 km/s.' : 'Kerosene ~3 km/s, hydrogen–oxygen ~4.4 km/s.';
+    $('wNote').textContent = d.wNote || '';
     const ls = [Math.log10(d.sp[0]), Math.log10(d.sp[1])]; $('sSp').value = toSl(p.sp, ...ls); $('vSp').textContent = fmtPower(p.sp) + '/kg';
     $('sFuel').value = toSl(p.fuelT, ...LOGS.fuel); $('vFuel').textContent = fmtMass(p.fuelT * 1000); $('fuelLbl').textContent = d.fuelLbl;
   }

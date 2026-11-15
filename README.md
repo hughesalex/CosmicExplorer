@@ -21,7 +21,7 @@ Star, nebula, galaxy, cluster and quasar positions come from real catalogue coor
 
 ## The journey planner
 
-Pick a drive (chemical, ion, fusion, antimatter or “magic”), set the payload, propellant, exhaust velocity and thrust, and choose whether to **stop** at the destination or **fly past** at full speed. The planner reports:
+Pick a drive from the drop-down: chemical, ion (solar or nuclear-electric), four fission concepts (solid-core nuclear thermal, gas-core nuclear thermal, fission-fragment and Orion-style nuclear pulse), fusion, antimatter or “magic”, set the payload, propellant, exhaust velocity and thrust, and choose whether to **stop** at the destination or **fly past** at full speed. The planner reports:
 
 * **Earth time**: how long the trip takes for people at home (cosmic time for very distant trips).
 * **Ship time**: how long the crew's clocks record.
