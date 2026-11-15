@@ -987,8 +987,27 @@ function resize() {
 }
 window.addEventListener('resize', resize); resize();
 
+// Keep the centre of rotation in the middle of the part of the map the journey planner
+// doesn't cover: shift the camera's principal point with a view offset. Checked every
+// frame so it follows the panel while it opens, collapses or the window is resized.
+const panelEl = document.getElementById('panel');
+let viewShift = '';
+function updateViewCentre() {
+  const W = window.innerWidth, H = window.innerHeight, r = panelEl.getBoundingClientRect();
+  let cx = W / 2, cy = H / 2;
+  if (r.width > 0 && r.height > 0) {
+    if (r.top > 0 && r.left < 20 && r.right > W - 20) cy = Math.max(0, r.top) / 2;   // bottom sheet
+    else if (r.left > W * .4 && r.top < H * .2) cx = r.left / 2;                    // side panel
+  }
+  const key = `${W}x${H}:${cx.toFixed(1)},${cy.toFixed(1)}`;
+  if (key === viewShift) return;
+  viewShift = key;
+  camera.setViewOffset(W, H, W / 2 - cx, H / 2 - cy, W, H);
+  camera.updateProjectionMatrix();
+}
 function frame(now) {
   requestAnimationFrame(frame);
+  updateViewCentre();
   stepFlight(now);
   if (!flight) view.logR += (view.targetLogR - view.logR) * .18;
   const Rv = R(), F = view.focus;
