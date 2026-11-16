@@ -724,7 +724,7 @@ camera.up.set(0, 0, 1);
 
 const VS = `
 attribute vec3 acol; attribute float psize; attribute float wsize; attribute float aalpha;
-uniform float uScale, uProj, uOpacity, uDpr, uMaxPx;
+uniform float uScale, uProj, uOpacity, uDpr, uMaxPx, uMinPx, uSmallGain;
 varying vec3 vCol; varying float vA;
 void main(){
   vec4 mv = modelViewMatrix * vec4(position, 1.0);
@@ -734,6 +734,13 @@ void main(){
   float s = max(psize * uDpr, ws);
   float a = aalpha * uOpacity;
   if (s > uMaxPx) { a *= uMaxPx / s; s = uMaxPx; }
+  // Points much smaller than a pixel flicker: whether a star lights a pixel, and how brightly,
+  // depends on where it falls between pixel centres, so the tiniest rotation reshuffles which
+  // background stars show. Draw them no smaller than uMinPx and dim them to keep about the same
+  // total light, so a star looks the same wherever it lands and the field moves as one rigid sky.
+  // uSmallGain > 1 brightens the smallest a little more (sparse layers, so a softened star still
+  // catches the eye); dense layers keep 1 so their overall glow is unchanged.
+  if (s < uMinPx) { float k = s / uMinPx; a *= k * k * mix(uSmallGain, 1.0, k); s = uMinPx; }
   if (d <= 0.0) a = 0.0; else gl_Position.z = 0.0;   // never clipped by the far plane
   gl_PointSize = s;
   vCol = acol; vA = a;
@@ -746,9 +753,12 @@ void main(){
   float f = exp(-r2 * 9.0) + 0.28 * exp(-r2 * 2.5);
   gl_FragColor = vec4(vCol * f * vA, 1.0);
 }`;
+// smallest sprite drawn, in device pixels: wide enough (core σ ≈ 0.5 px) that a star's
+// sampled brightness barely depends on its sub-pixel position
+const MIN_PX = 4.0;
 const allMats = [];
 function pointMaterial() {
-  const m = new THREE.ShaderMaterial({ uniforms: { uScale: { value: 1 }, uProj: { value: 500 }, uOpacity: { value: 1 }, uDpr: { value: 1 }, uMaxPx: { value: 160 } },
+  const m = new THREE.ShaderMaterial({ uniforms: { uScale: { value: 1 }, uProj: { value: 500 }, uOpacity: { value: 1 }, uDpr: { value: 1 }, uMaxPx: { value: 160 }, uMinPx: { value: MIN_PX }, uSmallGain: { value: 1 } },
     vertexShader: VS, fragmentShader: FS, transparent: true, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending });
   allMats.push(m); return m;
 }
@@ -784,7 +794,8 @@ function addLayer(obj, anchor, unit, fade) { const L = { obj, anchor, unit, fade
     const c = pal[Math.min(5, Math.floor(Math.pow(rnd(), 1.6) * 6))];
     b.add(x, y, z, c, 0.8 + rnd() * 1.4, 0, 0.35 + rnd() * 0.4);
   }
-  addLayer(makePoints(b.done()), [0, 0, 0], 1, [0, 0, 3000, 25000]);
+  const fieldPts = makePoints(b.done()); fieldPts.material.uniforms.uSmallGain.value = 3;
+  addLayer(fieldPts, [0, 0, 0], 1, [0, 0, 3000, 25000]);
 }
 
 // --- Milky Way (illustrative barred spiral; Sun on the Orion Spur) ---
