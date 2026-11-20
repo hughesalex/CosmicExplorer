@@ -795,7 +795,8 @@ function addLayer(obj, anchor, unit, fade) { const L = { obj, anchor, unit, fade
     b.add(x, y, z, c, 0.8 + rnd() * 1.4, 0, 0.35 + rnd() * 0.4);
   }
   const fieldPts = makePoints(b.done()); fieldPts.material.uniforms.uSmallGain.value = 3;
-  addLayer(fieldPts, [0, 0, 0], 1, [0, 0, 3000, 25000]);
+  // gone by the time the Milky Way's arms are fully in (its layer fades in over 700–5,000 ly)
+  addLayer(fieldPts, [0, 0, 0], 1, [0, 0, 1000, 5000]);
 }
 
 // --- Milky Way (illustrative barred spiral; Sun on the Orion Spur) ---
@@ -822,12 +823,14 @@ const ARM_LABELS = [];
       c = rnd() < .08 ? cHII : mixc(cArm, [1, 1, 1], rnd() * .5); ws = 170; al = .34;
     } else if (u < .77) { // Orion Spur
       const R = 23500 + rnd() * 7000, th = (R - 26670) / 26670 * 1.6 + gauss() * .02;
-      X = R * Math.cos(th) + gauss() * 500; Y = R * Math.sin(th) + gauss() * 500; Z = gauss() * 250; c = mixc(cArm, [1, 1, 1], .4); ws = 140; al = .3;
+      // a minor feature: keep it fainter and looser than the main arms
+      X = R * Math.cos(th) + gauss() * 750; Y = R * Math.sin(th) + gauss() * 750; Z = gauss() * 250; c = mixc(cArm, [1, 1, 1], .25); ws = 140; al = .18;
     } else { let R; do { R = -Math.log(1 - rnd()) * 11000; } while (R > 60000); const th = rnd() * 2 * Math.PI;
       X = R * Math.cos(th); Y = R * Math.sin(th); Z = gauss() * 900; c = cDisk; ws = 200; al = .2; }
     b.add(GC_DIST - X - GC_DIST, -Y, Z, c, ps, ws, al); // stored relative to GC anchor
   }
-  addLayer(makePoints(b.done()), GC, 1, [700, 5000, 4e6, 4e7]);
+  // seen from inside the disc the particles pile up, so dim it close in (×0.55 below 8,000 ly, full by 60,000 ly)
+  addLayer(makePoints(b.done()), GC, 1, [700, 5000, 4e6, 4e7]).dim = [8000, 60000, .55];
   const lab = (name, X, Y) => ARM_LABELS.push({ name, pos: gcToSun(X, Y, 0) });
   lab('Sagittarius–Carina Arm', ...armPoint(22500, 24000).map((v, i) => v));
   lab('Perseus Arm', ...armPoint(31500, 29800));
@@ -1145,7 +1148,9 @@ function frame(now) {
   camera.lookAt(0, 0, 0); camera.updateMatrixWorld();
 
   for (const L of layers) {
-    const op = fade4(Rv, L.fade); L.obj.visible = op > .004;
+    let op = fade4(Rv, L.fade);
+    if (L.dim) { const [r0, r1, g] = L.dim, k = Math.min(1, Math.max(0, Math.log(Rv / r0) / Math.log(r1 / r0))); op *= g + (1 - g) * k; }
+    L.obj.visible = op > .004;
     if (!L.obj.visible) continue;
     L.obj.position.set((L.anchor[0] - F[0]) / Rv, (L.anchor[1] - F[1]) / Rv, (L.anchor[2] - F[2]) / Rv);
     const sc = L.unit / Rv; L.obj.scale.setScalar(sc);
