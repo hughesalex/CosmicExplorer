@@ -792,7 +792,10 @@ function addLayer(obj, anchor, unit, fade) { const L = { obj, anchor, unit, fade
     const r = 2600 * Math.sqrt(rnd()), th = rnd() * 2 * Math.PI, x = r * Math.cos(th), y = r * Math.sin(th), z = gauss() * 650;
     if (Math.hypot(x, y, z) < 22) continue;
     const c = pal[Math.min(5, Math.floor(Math.pow(rnd(), 1.6) * 6))];
-    b.add(x, y, z, c, 0.8 + rnd() * 1.4, 0, 0.35 + rnd() * 0.4);
+    // steep brightness distribution, like a real sky: most stars faint enough to merge into a soft
+    // background, a few bright ones stand out (a uniform spread read as even speckle)
+    const m = Math.pow(rnd(), 4);
+    b.add(x, y, z, c, 0.8 + m * 2.2, 0, 0.08 + rnd() * 0.08 + m * 0.8);
   }
   const fieldPts = makePoints(b.done()); fieldPts.material.uniforms.uSmallGain.value = 3;
   // gone by the time the Milky Way's arms are fully in (its layer fades in over 700–5,000 ly)
